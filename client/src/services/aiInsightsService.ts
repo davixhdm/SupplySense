@@ -1,7 +1,11 @@
 import { apiFetch } from './api'
+import { Insight, Prediction } from './types'
 
 export const aiInsightsService = {
-  getInsights: () => apiFetch('/ai/insights'),
+  getInsights: () => apiFetch<Insight[]>('/ai/insights'),
   getPrediction: (input: any) =>
-    apiFetch('/ai/predict', { method: 'POST', body: JSON.stringify(input) }),
+    apiFetch<Prediction>('/ai/predict', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
 }
