@@ -1,0 +1,23 @@
+{
+  "watch": [
+    "server.js",
+    "config/*.js",
+    "models/**/*.js",
+    "controllers/**/*.js",
+    "routes/**/*.js",
+    "middleware/**/*.js",
+    "services/**/*.js",
+    "utils/**/*.js"
+  ],
+  "ext": "js",
+  "ignore": [
+    "*.log",
+    "backups/",
+    "backups/**",
+    "legal/",
+    "scripts/",
+    "node_modules/"
+  ],
+  "delay": 1500,
+  "restartable": "rs"
+}

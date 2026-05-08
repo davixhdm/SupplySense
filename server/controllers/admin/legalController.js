@@ -2,7 +2,6 @@ import fs from 'fs';
 import path from 'path';
 
 const legalDir = path.join(process.cwd(), 'legal');
-
 if (!fs.existsSync(legalDir)) {
   fs.mkdirSync(legalDir, { recursive: true });
 }
@@ -17,10 +16,11 @@ const getLegalDocument = async (req, res) => {
 
     const filePath = path.join(legalDir, `${type}.html`);
     if (fs.existsSync(filePath)) {
-      return res.sendFile(filePath);
-    } else {
-      return res.status(404).json({ message: 'Document not found.' });
+      const content = fs.readFileSync(filePath, 'utf-8');
+      return res.json({ content });
     }
+
+    return res.json({ content: '' });
   } catch (error) {
     console.error('Get legal error:', error);
     res.status(500).json({ message: 'Internal server error.' });
@@ -35,11 +35,11 @@ const updateLegalDocument = async (req, res) => {
     if (!validTypes.includes(type)) {
       return res.status(400).json({ message: 'Invalid document type.' });
     }
-    if (!content) return res.status(400).json({ message: 'Content required.' });
+    if (content === undefined) return res.status(400).json({ message: 'Content required.' });
 
     const filePath = path.join(legalDir, `${type}.html`);
     fs.writeFileSync(filePath, content);
-    res.json({ message: `${type} updated.` });
+    res.json({ message: `${type} updated.`, content });
   } catch (error) {
     console.error('Update legal error:', error);
     res.status(500).json({ message: 'Internal server error.' });

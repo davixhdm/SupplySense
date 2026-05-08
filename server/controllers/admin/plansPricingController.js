@@ -1,25 +1,9 @@
-import env from '../../config/env.js';
+import SystemSettings from '../../models/admin/SystemSettingsModel.js';
 
 const getPlansPricing = async (req, res) => {
   try {
-    const plans = {
-      trial: {
-        duration: env.TRIAL_DURATION_DAYS,
-        price: 0
-      },
-      standard: {
-        monthly: 0,
-        yearly: 0,
-        permanent: 0
-      },
-      proplus: {
-        monthly: 0,
-        yearly: 0,
-        permanent: 0
-      }
-    };
-
-    res.json(plans);
+    const settings = await SystemSettings.getSettings();
+    res.json(settings.pricing);
   } catch (error) {
     console.error('Get plans error:', error);
     res.status(500).json({ message: 'Internal server error.' });
@@ -28,7 +12,17 @@ const getPlansPricing = async (req, res) => {
 
 const updatePlansPricing = async (req, res) => {
   try {
-    res.json({ message: 'Pricing updated in environment variables.', data: req.body });
+    const settings = await SystemSettings.getSettings();
+    
+    if (req.body.pricing) {
+      settings.pricing = { ...settings.pricing, ...req.body.pricing };
+    }
+    if (req.body.paymentConfig) {
+      settings.paymentConfig = { ...settings.paymentConfig, ...req.body.paymentConfig };
+    }
+
+    await settings.save();
+    res.json(settings);
   } catch (error) {
     console.error('Update plans error:', error);
     res.status(500).json({ message: 'Internal server error.' });
