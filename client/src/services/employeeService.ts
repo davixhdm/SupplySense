@@ -6,6 +6,8 @@ export const employeeService = {
     apiFetch<PaginatedResponse<Employee>>(
       `/employees?page=${page}&limit=${limit}`
     ),
+  getDepartmentPerformance: () =>
+    apiFetch<any>('/employees/departments'),
   getEmployee: (id: string) => apiFetch<Employee>(`/employees/${id}`),
   createEmployee: (data: Partial<Employee>) =>
     apiFetch<Employee>('/employees', {
@@ -14,6 +16,11 @@ export const employeeService = {
     }),
   updateEmployee: (id: string, data: Partial<Employee>) =>
     apiFetch<Employee>(`/employees/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  recordPerformance: (id: string, data: any) =>
+    apiFetch<Employee>(`/employees/${id}/performance`, {
       method: 'PUT',
       body: JSON.stringify(data),
     }),

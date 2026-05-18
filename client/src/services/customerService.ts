@@ -6,6 +6,7 @@ export const customerService = {
     apiFetch<PaginatedResponse<Customer>>(
       `/customers?page=${page}&limit=${limit}`
     ),
+  getCustomerStats: () => apiFetch<any>('/customers/stats'),
   getCustomer: (id: string) => apiFetch<Customer>(`/customers/${id}`),
   createCustomer: (data: Partial<Customer>) =>
     apiFetch<Customer>('/customers', {

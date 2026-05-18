@@ -6,6 +6,8 @@ export const transactionService = {
     apiFetch<PaginatedResponse<Transaction>>(
       `/transactions?page=${page}&limit=${limit}`
     ),
+  getTransactionSummary: (period?: string) =>
+    apiFetch<any>(`/transactions/summary${period ? `?period=${period}` : ''}`),
   getTransaction: (id: string) => apiFetch<Transaction>(`/transactions/${id}`),
   createTransaction: (data: Partial<Transaction>) =>
     apiFetch<Transaction>('/transactions', {
@@ -17,6 +19,4 @@ export const transactionService = {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
-  deleteTransaction: (id: string) =>
-    apiFetch(`/transactions/${id}`, { method: 'DELETE' }),
 }

@@ -6,6 +6,8 @@ export const supplierService = {
     apiFetch<PaginatedResponse<Supplier>>(
       `/suppliers?page=${page}&limit=${limit}`
     ),
+  getSupplierPerformance: () =>
+    apiFetch<any>('/suppliers/performance'),
   getSupplier: (id: string) => apiFetch<Supplier>(`/suppliers/${id}`),
   createSupplier: (data: Partial<Supplier>) =>
     apiFetch<Supplier>('/suppliers', {

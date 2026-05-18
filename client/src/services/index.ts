@@ -10,6 +10,11 @@ export { transactionService } from './transactionService'
 export { alertService } from './alertService'
 export { aiInsightsService } from './aiInsightsService'
 export { settingsService } from './settingsService'
+export { companySettingsService } from './companySettingsService'
+export { preferencesService } from './preferencesService'
+export { userService } from './userService'
+export { deviceService } from './deviceService'
+export { backupService } from './backupService'
 
 // Export API utilities
 export { apiFetch, apiFetchFormData } from './api'
