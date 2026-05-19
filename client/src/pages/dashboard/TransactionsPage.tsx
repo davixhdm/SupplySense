@@ -1,67 +1,38 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { DashboardLayout } from '../../layouts/DashboardLayout'
 import { Widget } from '../../components/dashboard/Widget'
 import { Table } from '../../components/common/Table'
 import { Input } from '../../components/common/Input'
 import { Button } from '../../components/common/Button'
-import { Download } from 'lucide-react'
+import { Download, AlertCircle, RefreshCw } from 'lucide-react'
+import { transactionService } from '../../services'
+import { useApiPaginated } from '../../hooks'
 
 interface Transaction {
   id: string
+  _id?: string
   date: string
   description: string
-  category: string
+  category?: string
   amount: number
   type: 'income' | 'expense'
-  status: 'completed' | 'pending' | 'failed'
-  reference: string
+  status?: 'completed' | 'pending' | 'failed'
+  reference?: string
 }
 
 export default function TransactionsPage() {
-  const [transactions, setTransactions] = useState<Transaction[]>([
-    {
-      id: '1',
-      date: '2024-01-18',
-      description: 'Order Payment - ORD-001',
-      category: 'Sales',
-      amount: 2500,
-      type: 'income',
-      status: 'completed',
-      reference: 'TXN-001',
-    },
-    {
-      id: '2',
-      date: '2024-01-17',
-      description: 'Supplier Invoice - Global Parts Inc',
-      category: 'Purchases',
-      amount: 5300,
-      type: 'expense',
-      status: 'completed',
-      reference: 'TXN-002',
-    },
-    {
-      id: '3',
-      date: '2024-01-16',
-      description: 'Payroll - January',
-      category: 'Salaries',
-      amount: 45000,
-      type: 'expense',
-      status: 'pending',
-      reference: 'TXN-003',
-    },
-    {
-      id: '4',
-      date: '2024-01-15',
-      description: 'Bank Transfer - Shipping',
-      category: 'Logistics',
-      amount: 1200,
-      type: 'expense',
-      status: 'completed',
-      reference: 'TXN-004',
-    },
-  ])
   const [search, setSearch] = useState('')
-  const [loading, setLoading] = useState(false)
+
+  // Fetch transactions using the hook
+  const {
+    data: transactions,
+    loading,
+    error,
+    page,
+    nextPage,
+    prevPage,
+    refetch,
+  } = useApiPaginated(transactionService.getTransactions, 1, 20)
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -79,7 +50,11 @@ export default function TransactionsPage() {
   const columns = [
     { key: 'date', label: 'Date' },
     { key: 'description', label: 'Description' },
-    { key: 'category', label: 'Category' },
+    {
+      key: 'category',
+      label: 'Category',
+      render: (val: string) => val || '-',
+    },
     {
       key: 'amount',
       label: 'Amount',
@@ -93,12 +68,11 @@ export default function TransactionsPage() {
       key: 'status',
       label: 'Status',
       render: (val: string) => (
-        <span className={`px-2 py-1 rounded text-sm font-medium ${getStatusColor(val)}`}>
-          {val}
+        <span className={`px-2 py-1 rounded text-sm font-medium ${getStatusColor(val || 'completed')}`}>
+          {val || 'completed'}
         </span>
       ),
     },
-    { key: 'reference', label: 'Reference' },
   ]
 
   const totalIncome = transactions
@@ -114,6 +88,23 @@ export default function TransactionsPage() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
+        {/* Error Display */}
+        {error && (
+          <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-red-600" />
+              <p className="text-red-800">{error}</p>
+            </div>
+            <button
+              onClick={refetch}
+              className="text-red-600 hover:text-red-800 flex items-center gap-1"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Retry
+            </button>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold text-gray-900">Transactions</h1>
@@ -141,38 +132,47 @@ export default function TransactionsPage() {
           </Widget>
         </div>
 
-        {/* Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Search */}
+        <div className="bg-white p-4 rounded-lg border border-gray-200">
           <Input
-            label="Search Transactions"
             type="text"
-            placeholder="Description, reference..."
+            placeholder="Search transactions by description or reference..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            className="w-full"
           />
-          <select className="px-3 py-2 border border-gray-300 rounded-lg text-gray-900">
-            <option>All Categories</option>
-            <option>Sales</option>
-            <option>Purchases</option>
-            <option>Salaries</option>
-            <option>Logistics</option>
-          </select>
-          <select className="px-3 py-2 border border-gray-300 rounded-lg text-gray-900">
-            <option>All Types</option>
-            <option>Income</option>
-            <option>Expense</option>
-          </select>
-          <select className="px-3 py-2 border border-gray-300 rounded-lg text-gray-900">
-            <option>All Statuses</option>
-            <option>Completed</option>
-            <option>Pending</option>
-            <option>Failed</option>
-          </select>
         </div>
 
         {/* Transactions Table */}
         <Widget title="Transaction History">
-          <Table columns={columns} data={transactions} loading={loading} />
+          {loading ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+          ) : transactions.length > 0 ? (
+            <>
+              <Table columns={columns} data={transactions} />
+              <div className="mt-4 flex justify-between items-center">
+                <span className="text-sm text-gray-600">
+                  Page {page} | Transactions: {transactions.length}
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    variant="secondary"
+                    onClick={prevPage}
+                    disabled={page === 1}
+                  >
+                    Previous
+                  </Button>
+                  <Button variant="secondary" onClick={nextPage}>
+                    Next
+                  </Button>
+                </div>
+              </div>
+            </>
+          ) : (
+            <p className="text-gray-500 py-8 text-center">No transactions found</p>
+          )}
         </Widget>
       </div>
     </DashboardLayout>

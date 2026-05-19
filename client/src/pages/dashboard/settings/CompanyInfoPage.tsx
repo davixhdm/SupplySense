@@ -1,52 +1,76 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { DashboardLayout } from '../../../layouts/DashboardLayout'
 import { Widget } from '../../../components/dashboard/Widget'
 import { Input } from '../../../components/common/Input'
 import { Button } from '../../../components/common/Button'
 import { AlertBanner } from '../../../components/common/AlertBanner'
+import { AlertCircle } from 'lucide-react'
+import { companySettingsService } from '../../../services'
 
 interface CompanyInfo {
-  name: string
-  email: string
-  phone: string
-  address: string
-  city: string
-  country: string
-  postalCode: string
-  industry: string
-  employeeCount: string
+  name?: string
+  email?: string
+  phone?: string
+  address?: string
+  city?: string
+  country?: string
+  postalCode?: string
+  industry?: string
+  employeeCount?: string
 }
 
 export default function CompanyInfoPage() {
-  const [formData, setFormData] = useState<CompanyInfo>({
-    name: 'SupplySense Demo Corp',
-    email: 'contact@supplysense.com',
-    phone: '+1-555-0100',
-    address: '123 Business Ave',
-    city: 'New York',
-    country: 'United States',
-    postalCode: '10001',
-    industry: 'Retail & Distribution',
-    employeeCount: '50-100',
-  })
+  const [formData, setFormData] = useState<CompanyInfo>({})
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [loadingSettings, setLoadingSettings] = useState(true)
+
+  // Load company settings on mount
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        setLoadingSettings(true)
+        const settings = await companySettingsService.getCompanySettings()
+        if (settings) {
+          setFormData(settings)
+        }
+      } catch (err) {
+        console.error('Failed to load settings:', err)
+        setError('Failed to load company settings')
+      } finally {
+        setLoadingSettings(false)
+      }
+    }
+    loadSettings()
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setSaved(false)
+    setError(null)
 
     try {
-      // API call to save company info
-      await new Promise((resolve) => setTimeout(resolve, 500))
+      await companySettingsService.updateCompanySettings(formData)
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
-    } catch (error) {
-      console.error('Failed to save:', error)
+    } catch (err) {
+      setError('Failed to save company information')
+      console.error('Failed to save:', err)
     } finally {
       setLoading(false)
     }
+  }
+
+  if (loadingSettings) {
+    return (
+      <DashboardLayout>
+        <div className="flex justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
+      </DashboardLayout>
+    )
   }
 
   return (
@@ -62,6 +86,13 @@ export default function CompanyInfoPage() {
           <AlertBanner type="success" message="Company information updated successfully" />
         )}
 
+        {error && (
+          <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-red-600" />
+            <p className="text-red-800">{error}</p>
+          </div>
+        )}
+
         {/* Company Info Form */}
         <Widget title="Basic Information">
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -69,26 +100,27 @@ export default function CompanyInfoPage() {
               <Input
                 label="Company Name"
                 type="text"
-                value={formData.name}
+                value={formData.name || ''}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
               <Input
                 label="Email"
                 type="email"
-                value={formData.email}
+                value={formData.email || ''}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               />
               <Input
                 label="Phone"
                 type="tel"
-                value={formData.phone}
+                value={formData.phone || ''}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               />
               <select
-                value={formData.industry}
+                value={formData.industry || ''}
                 onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
                 className="px-3 py-2 border border-gray-300 rounded-lg text-gray-900"
               >
+                <option value="">Select Industry</option>
                 <option>Retail & Distribution</option>
                 <option>Manufacturing</option>
                 <option>Wholesale</option>
@@ -98,32 +130,33 @@ export default function CompanyInfoPage() {
               <Input
                 label="Address"
                 type="text"
-                value={formData.address}
+                value={formData.address || ''}
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
               />
               <Input
                 label="City"
                 type="text"
-                value={formData.city}
+                value={formData.city || ''}
                 onChange={(e) => setFormData({ ...formData, city: e.target.value })}
               />
               <Input
                 label="Country"
                 type="text"
-                value={formData.country}
+                value={formData.country || ''}
                 onChange={(e) => setFormData({ ...formData, country: e.target.value })}
               />
               <Input
                 label="Postal Code"
                 type="text"
-                value={formData.postalCode}
+                value={formData.postalCode || ''}
                 onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
               />
               <select
-                value={formData.employeeCount}
+                value={formData.employeeCount || ''}
                 onChange={(e) => setFormData({ ...formData, employeeCount: e.target.value })}
                 className="px-3 py-2 border border-gray-300 rounded-lg text-gray-900"
               >
+                <option value="">Select Size</option>
                 <option>1-10</option>
                 <option>10-50</option>
                 <option>50-100</option>

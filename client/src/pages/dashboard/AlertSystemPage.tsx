@@ -1,88 +1,62 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { DashboardLayout } from '../../layouts/DashboardLayout'
 import { Widget } from '../../components/dashboard/Widget'
 import { Table } from '../../components/common/Table'
 import { Button } from '../../components/common/Button'
-import { AlertCircle, Bell, CheckCircle } from 'lucide-react'
+import { AlertCircle, Bell, CheckCircle, RefreshCw } from 'lucide-react'
+import { alertService } from '../../services'
+import { useApiPaginated } from '../../hooks'
 
 interface Alert {
   id: string
+  _id?: string
   title: string
-  type: 'error' | 'warning' | 'info' | 'success'
+  type?: 'error' | 'warning' | 'info' | 'success'
   description: string
-  severity: 'critical' | 'high' | 'medium' | 'low'
+  severity?: 'critical' | 'high' | 'medium' | 'low'
   createdAt: string
-  resolved: boolean
-}
-
-interface NotificationSetting {
-  id: string
-  name: string
-  enabled: boolean
-  channels: string[]
-  threshold?: number
+  resolved?: boolean
+  isRead?: boolean
 }
 
 export default function AlertSystemPage() {
-  const [alerts, setAlerts] = useState<Alert[]>([
-    {
-      id: '1',
-      title: 'Critical Low Inventory',
-      type: 'error',
-      description: 'SKU-001 has fallen below critical level',
-      severity: 'critical',
-      createdAt: '2024-01-18T14:30:00',
-      resolved: false,
-    },
-    {
-      id: '2',
-      title: 'Supplier Delay',
-      type: 'warning',
-      description: 'Supplier ABC has delayed shipment by 2 days',
-      severity: 'high',
-      createdAt: '2024-01-18T10:15:00',
-      resolved: false,
-    },
-    {
-      id: '3',
-      title: 'High Churn Risk Customer',
-      type: 'warning',
-      description: 'Customer XYZ shows high churn risk score',
-      severity: 'medium',
-      createdAt: '2024-01-17T16:45:00',
-      resolved: true,
-    },
-  ])
-
-  const [settings, setSettings] = useState<NotificationSetting[]>([
-    {
-      id: '1',
-      name: 'Inventory Alerts',
-      enabled: true,
-      channels: ['email', 'in-app'],
-      threshold: 50,
-    },
-    {
-      id: '2',
-      name: 'Supplier Notifications',
-      enabled: true,
-      channels: ['email', 'sms', 'in-app'],
-    },
-    {
-      id: '3',
-      name: 'Customer Risk Alerts',
-      enabled: false,
-      channels: ['email'],
-    },
-    {
-      id: '4',
-      name: 'System Warnings',
-      enabled: true,
-      channels: ['in-app'],
-    },
-  ])
-
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Fetch alerts using the hook
+  const {
+    data: alerts,
+    loading: alertsLoading,
+    error: alertsError,
+    page,
+    nextPage,
+    prevPage,
+    refetch,
+  } = useApiPaginated(alertService.getAlerts, 1, 20)
+
+  const handleMarkAsRead = async (alertId: string) => {
+    try {
+      setLoading(true)
+      await alertService.markAsRead(alertId)
+      refetch()
+    } catch (err) {
+      setError('Failed to mark alert as read')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleResolveAlert = async (alertId: string) => {
+    try {
+      setLoading(true)
+      await alertService.markAsActioned(alertId)
+      refetch()
+    } catch (err) {
+      setError('Failed to resolve alert')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const getSeverityColor = (severity: string) => {
     const colors: Record<string, string> = {
@@ -101,23 +75,7 @@ export default function AlertSystemPage() {
       info: <Bell className="w-5 h-5 text-blue-600" />,
       success: <CheckCircle className="w-5 h-5 text-green-600" />,
     }
-    return icons[type]
-  }
-
-  const handleResolveAlert = (alertId: string) => {
-    setAlerts((prev) =>
-      prev.map((alert) =>
-        alert.id === alertId ? { ...alert, resolved: true } : alert
-      )
-    )
-  }
-
-  const handleToggleSetting = (settingId: string) => {
-    setSettings((prev) =>
-      prev.map((setting) =>
-        setting.id === settingId ? { ...setting, enabled: !setting.enabled } : setting
-      )
-    )
+    return icons[type] || <Bell className="w-5 h-5 text-gray-600" />
   }
 
   const activeAlerts = alerts.filter((a) => !a.resolved)
@@ -129,7 +87,7 @@ export default function AlertSystemPage() {
       label: 'Alert',
       render: (val: string, item: Alert) => (
         <div className="flex items-start gap-2">
-          {getTypeIcon(item.type)}
+          {getTypeIcon(item.type || 'info')}
           <div>
             <p className="font-medium text-gray-900">{val}</p>
             <p className="text-sm text-gray-600">{item.description}</p>
@@ -141,12 +99,16 @@ export default function AlertSystemPage() {
       key: 'severity',
       label: 'Severity',
       render: (val: string) => (
-        <span className={`px-2 py-1 rounded text-sm font-medium ${getSeverityColor(val)}`}>
-          {val}
+        <span className={`px-2 py-1 rounded text-sm font-medium ${getSeverityColor(val || 'medium')}`}>
+          {val || 'medium'}
         </span>
       ),
     },
-    { key: 'createdAt', label: 'Time', render: (val: string) => new Date(val).toLocaleString() },
+    { 
+      key: 'createdAt', 
+      label: 'Time', 
+      render: (val: string) => new Date(val).toLocaleString() 
+    },
     {
       key: 'resolved',
       label: 'Action',
@@ -154,7 +116,7 @@ export default function AlertSystemPage() {
         !val ? (
           <Button
             size="sm"
-            onClick={() => handleResolveAlert(item.id)}
+            onClick={() => handleResolveAlert(item.id || item._id)}
           >
             Resolve
           </Button>
@@ -167,6 +129,23 @@ export default function AlertSystemPage() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
+        {/* Error Display */}
+        {(error || alertsError) && (
+          <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-red-600" />
+              <p className="text-red-800">{error || alertsError}</p>
+            </div>
+            <button
+              onClick={refetch}
+              className="text-red-600 hover:text-red-800 flex items-center gap-1"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Retry
+            </button>
+          </div>
+        )}
+
         {/* Header */}
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Alert System</h1>
@@ -189,7 +168,7 @@ export default function AlertSystemPage() {
         )}
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Widget title="Total Alerts">
             <p className="text-4xl font-bold text-gray-900">{alerts.length}</p>
             <p className="text-sm text-gray-600 mt-2">All time</p>
@@ -202,46 +181,38 @@ export default function AlertSystemPage() {
             <p className="text-4xl font-bold text-red-600">{criticalAlerts.length}</p>
             <p className="text-sm text-gray-600 mt-2">Need action</p>
           </Widget>
-          <Widget title="Resolved">
-            <p className="text-4xl font-bold text-green-600">
-              {alerts.filter((a) => a.resolved).length}
-            </p>
-            <p className="text-sm text-gray-600 mt-2">Completed</p>
-          </Widget>
         </div>
 
         {/* Recent Alerts */}
         <Widget title="Recent Alerts">
-          <Table columns={columns} data={activeAlerts} loading={loading} />
-        </Widget>
-
-        {/* Notification Settings */}
-        <Widget title="Notification Settings">
-          <div className="space-y-4">
-            {settings.map((setting) => (
-              <div key={setting.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                <div className="flex-1">
-                  <h4 className="font-semibold text-gray-900">{setting.name}</h4>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Channels: {setting.channels.join(', ')}
-                    {setting.threshold && ` • Threshold: ${setting.threshold}`}
-                  </p>
+          {alertsLoading ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+          ) : activeAlerts.length > 0 ? (
+            <>
+              <Table columns={columns} data={activeAlerts} />
+              <div className="mt-4 flex justify-between items-center">
+                <span className="text-sm text-gray-600">
+                  Page {page} | Alerts: {activeAlerts.length}
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    variant="secondary"
+                    onClick={prevPage}
+                    disabled={page === 1}
+                  >
+                    Previous
+                  </Button>
+                  <Button variant="secondary" onClick={nextPage}>
+                    Next
+                  </Button>
                 </div>
-                <button
-                  onClick={() => handleToggleSetting(setting.id)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    setting.enabled ? 'bg-blue-600' : 'bg-gray-300'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      setting.enabled ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
               </div>
-            ))}
-          </div>
+            </>
+          ) : (
+            <p className="text-gray-500 py-8 text-center">No active alerts</p>
+          )}
         </Widget>
       </div>
     </DashboardLayout>

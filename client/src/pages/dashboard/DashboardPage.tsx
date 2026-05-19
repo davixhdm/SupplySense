@@ -3,80 +3,92 @@ import { DashboardLayout } from '../../layouts/DashboardLayout'
 import { StatsCard } from '../../components/dashboard/StatsCard'
 import { Widget } from '../../components/dashboard/Widget'
 import { AlertFeed } from '../../components/dashboard/AlertFeed'
-import { TrendingUp, Package, AlertCircle, Users } from 'lucide-react'
+import { TrendingUp, Package, AlertCircle, Users, RefreshCw } from 'lucide-react'
+import { dashboardService, alertService } from '../../services'
+import { useApi } from '../../hooks'
 
 interface DashboardStats {
-  revenue: number
-  revenueChange: number
-  orders: number
-  ordersChange: number
-  inventory: number
-  inventoryChange: number
-  activeSuppliers: number
-  suppliersChange: number
+  totalRevenue?: number
+  totalOrders?: number
+  totalInventory?: number
+  activeSuppliers?: number
+  stats?: any
 }
 
 export default function DashboardPage() {
-  const [stats, setStats] = useState<DashboardStats>({
-    revenue: 45230,
-    revenueChange: 12,
-    orders: 328,
-    ordersChange: 8,
-    inventory: 1240,
-    inventoryChange: -3,
-    activeSuppliers: 42,
-    suppliersChange: 2,
-  })
-  const [loading, setLoading] = useState(false)
+  // Fetch dashboard stats using the custom hook
+  const {
+    data: statsData,
+    loading: statsLoading,
+    error: statsError,
+    refetch: refetchStats,
+  } = useApi(() => dashboardService.getStats(), [])
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      setLoading(true)
-      try {
-        // API call to fetch dashboard stats
-        // const response = await fetch('http://localhost:5000/api/dashboard/stats')
-        // const data = await response.json()
-        // setStats(data)
-      } catch (error) {
-        console.error('Failed to fetch stats:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
+  // Fetch alerts using the custom hook
+  const {
+    data: alertsData,
+    loading: alertsLoading,
+    error: alertsError,
+  } = useApi(() => alertService.getAlerts(1, 10), [])
 
-    fetchStats()
-  }, [])
+  // Transform API data to component format
+  const stats: DashboardStats = {
+    totalRevenue: statsData?.stats?.totalRevenue || 0,
+    totalOrders: statsData?.stats?.totalOrders || 0,
+    totalInventory: statsData?.stats?.totalInventory || 0,
+    activeSuppliers: statsData?.stats?.activeSuppliers || 0,
+  }
+
+  const loading = statsLoading || alertsLoading
+  const error = statsError || alertsError
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
+        {/* Error Display */}
+        {error && (
+          <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-red-600" />
+              <p className="text-red-800">{error}</p>
+            </div>
+            <button
+              onClick={refetchStats}
+              className="text-red-600 hover:text-red-800 flex items-center gap-1"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Retry
+            </button>
+          </div>
+        )}
+
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatsCard
-            title="Revenue"
-            value={`$${stats.revenue.toLocaleString()}`}
-            change={stats.revenueChange}
+            title="Total Revenue"
+            value={`$${(stats.totalRevenue || 0).toLocaleString()}`}
+            change={12}
             icon={<TrendingUp className="w-6 h-6" />}
             loading={loading}
           />
           <StatsCard
-            title="Orders"
-            value={stats.orders}
-            change={stats.ordersChange}
+            title="Total Orders"
+            value={stats.totalOrders || 0}
+            change={8}
             icon={<Package className="w-6 h-6" />}
             loading={loading}
           />
           <StatsCard
             title="Inventory Items"
-            value={stats.inventory}
-            change={stats.inventoryChange}
+            value={stats.totalInventory || 0}
+            change={-3}
             icon={<Package className="w-6 h-6" />}
             loading={loading}
           />
           <StatsCard
             title="Active Suppliers"
-            value={stats.activeSuppliers}
-            change={stats.suppliersChange}
+            value={stats.activeSuppliers || 0}
+            change={2}
             icon={<Users className="w-6 h-6" />}
             loading={loading}
           />
@@ -87,44 +99,36 @@ export default function DashboardPage() {
           {/* Recent Alerts */}
           <div className="lg:col-span-2">
             <Widget title="Recent Alerts" action="View All">
-              <AlertFeed
-                alerts={[
-                  {
-                    id: '1',
-                    type: 'error',
-                    title: 'Low Inventory Alert',
-                    message: 'Product SKU-001 below reorder point',
-                    timestamp: new Date(),
-                  },
-                  {
-                    id: '2',
-                    type: 'warning',
-                    title: 'Supplier Delay',
-                    message: 'Supplier ABC delayed shipment by 2 days',
-                    timestamp: new Date(Date.now() - 3600000),
-                  },
-                  {
-                    id: '3',
-                    type: 'info',
-                    title: 'New Order',
-                    message: 'Order #12345 received from customer',
-                    timestamp: new Date(Date.now() - 7200000),
-                  },
-                ]}
-              />
+              {alertsLoading ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : alertsData?.data && alertsData.data.length > 0 ? (
+                <AlertFeed
+                  alerts={alertsData.data.map((alert: any) => ({
+                    id: alert._id || alert.id,
+                    type: alert.severity || 'info',
+                    title: alert.title,
+                    message: alert.message,
+                    timestamp: new Date(alert.createdAt),
+                  }))}
+                />
+              ) : (
+                <p className="text-gray-500 py-8 text-center">No alerts at the moment</p>
+              )}
             </Widget>
           </div>
 
           {/* Quick Actions */}
           <Widget title="Quick Actions">
             <div className="space-y-2">
-              <button className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+              <button className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
                 New Order
               </button>
-              <button className="w-full px-4 py-2 bg-gray-200 text-gray-900 rounded-lg hover:bg-gray-300">
+              <button className="w-full px-4 py-2 bg-gray-200 text-gray-900 rounded-lg hover:bg-gray-300 transition">
                 Check Inventory
               </button>
-              <button className="w-full px-4 py-2 bg-gray-200 text-gray-900 rounded-lg hover:bg-gray-300">
+              <button className="w-full px-4 py-2 bg-gray-200 text-gray-900 rounded-lg hover:bg-gray-300 transition">
                 Contact Supplier
               </button>
             </div>

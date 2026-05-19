@@ -1,69 +1,47 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { DashboardLayout } from '../../layouts/DashboardLayout'
 import { Widget } from '../../components/dashboard/Widget'
 import { Table } from '../../components/common/Table'
 import { Input } from '../../components/common/Input'
 import { Button } from '../../components/common/Button'
-import { AlertCircle } from 'lucide-react'
+import { AlertCircle, RefreshCw } from 'lucide-react'
+import { customerService } from '../../services'
+import { useApiPaginated } from '../../hooks'
 
 interface Customer {
   id: string
+  _id?: string
   name: string
   email: string
   phone: string
   totalOrders: number
   totalValue: number
-  churnRisk: 'low' | 'medium' | 'high'
-  segment: string
+  churnRisk?: 'low' | 'medium' | 'high'
+  segment?: string
   lastOrderDate: string
 }
 
 export default function CustomersPage() {
-  const [customers, setCustomers] = useState<Customer[]>([
-    {
-      id: '1',
-      name: 'ACME Corporation',
-      email: 'contact@acme.com',
-      phone: '+1-555-0101',
-      totalOrders: 24,
-      totalValue: 125000,
-      churnRisk: 'low',
-      segment: 'Enterprise',
-      lastOrderDate: '2024-01-15',
-    },
-    {
-      id: '2',
-      name: 'TechStart Inc',
-      email: 'sales@techstart.com',
-      phone: '+1-555-0102',
-      totalOrders: 8,
-      totalValue: 42500,
-      churnRisk: 'high',
-      segment: 'SMB',
-      lastOrderDate: '2023-12-20',
-    },
-    {
-      id: '3',
-      name: 'Global Trade Ltd',
-      email: 'procurement@globaltrade.com',
-      phone: '+44-20-1234-5678',
-      totalOrders: 156,
-      totalValue: 890000,
-      churnRisk: 'low',
-      segment: 'Enterprise',
-      lastOrderDate: '2024-01-18',
-    },
-  ])
   const [search, setSearch] = useState('')
-  const [loading, setLoading] = useState(false)
 
-  const getChurnRiskColor = (risk: string) => {
+  // Fetch customers using the hook
+  const {
+    data: customers,
+    loading,
+    error,
+    page,
+    nextPage,
+    prevPage,
+    refetch,
+  } = useApiPaginated(customerService.getCustomers, 1, 20)
+
+  const getChurnRiskColor = (risk?: string) => {
     const colors: Record<string, string> = {
       low: 'bg-green-100 text-green-800',
       medium: 'bg-yellow-100 text-yellow-800',
       high: 'bg-red-100 text-red-800',
     }
-    return colors[risk] || 'bg-gray-100 text-gray-800'
+    return colors[risk || 'low'] || 'bg-gray-100 text-gray-800'
   }
 
   const columns = [
@@ -71,51 +49,86 @@ export default function CustomersPage() {
     { key: 'email', label: 'Email' },
     { key: 'phone', label: 'Phone' },
     { key: 'totalOrders', label: 'Total Orders' },
-    { key: 'totalValue', label: 'Lifetime Value', render: (val: number) => `$${val.toLocaleString()}` },
     {
-      key: 'churnRisk',
-      label: 'Churn Risk',
-      render: (val: string) => (
-        <span className={`px-2 py-1 rounded text-sm font-medium ${getChurnRiskColor(val)}`}>
-          {val}
-        </span>
-      ),
+      key: 'totalSpent',
+      label: 'Lifetime Value',
+      render: (val: number) => `$${(val || 0).toLocaleString()}`,
     },
-    { key: 'segment', label: 'Segment' },
     { key: 'lastOrderDate', label: 'Last Order' },
   ]
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
+        {/* Error Display */}
+        {error && (
+          <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-red-600" />
+              <p className="text-red-800">{error}</p>
+            </div>
+            <button
+              onClick={refetch}
+              className="text-red-600 hover:text-red-800 flex items-center gap-1"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Retry
+            </button>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-gray-900">Customers</h1>
-          <Button onClick={() => {}}>Add Customer</Button>
+          <h1 className="text-3xl font-bold">Customers</h1>
+          <Button variant="primary">Add Customer</Button>
         </div>
 
-        {/* Alert */}
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
-          <div>
-            <h3 className="font-semibold text-red-900">High Churn Risk Customers</h3>
-            <p className="text-sm text-red-700">3 customers identified with high churn risk. Consider reaching out.</p>
-          </div>
-        </div>
-
-        {/* Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Search */}
+        <div className="bg-white p-4 rounded-lg border border-gray-200">
           <Input
-            label="Search Customers"
             type="text"
-            placeholder="Name, email, phone..."
+            placeholder="Search customers by name or email..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            className="w-full"
           />
-          <select className="px-3 py-2 border border-gray-300 rounded-lg text-gray-900">
-            <option>All Segments</option>
-            <option>Enterprise</option>
-            <option>SMB</option>
+        </div>
+
+        {/* Customers Table */}
+        <Widget title="Customers">
+          {loading ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+          ) : customers && customers.length > 0 ? (
+            <>
+              <Table data={customers} columns={columns} />
+              <div className="mt-4 flex justify-between items-center border-t pt-4">
+                <span className="text-sm text-gray-600">
+                  Page {page} | Showing {customers.length} customers
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    variant="secondary"
+                    onClick={prevPage}
+                    disabled={page === 1}
+                  >
+                    Previous
+                  </Button>
+                  <Button variant="secondary" onClick={nextPage}>
+                    Next
+                  </Button>
+                </div>
+              </div>
+            </>
+          ) : (
+            <p className="text-gray-500 py-8 text-center">No customers found</p>
+          )}
+        </Widget>
+      </div>
+    </DashboardLayout>
+  )
+}
             <option>Startup</option>
           </select>
           <select className="px-3 py-2 border border-gray-300 rounded-lg text-gray-900">

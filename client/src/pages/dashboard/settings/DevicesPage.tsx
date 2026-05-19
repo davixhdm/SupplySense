@@ -1,88 +1,53 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { DashboardLayout } from '../../../layouts/DashboardLayout'
 import { Widget } from '../../../components/dashboard/Widget'
 import { Button } from '../../../components/common/Button'
-import { Input } from '../../../components/common/Input'
 import { AlertBanner } from '../../../components/common/AlertBanner'
-import { Smartphone, Trash2, Plus, Shield } from 'lucide-react'
+import { AlertCircle, Smartphone, Trash2, Shield } from 'lucide-react'
+import { deviceService } from '../../../services'
+import { useApiPaginated, useApiMutation } from '../../../hooks'
 
 interface Device {
-  id: string
+  id?: string
+  _id?: string
   name: string
-  type: string
-  os: string
-  lastActive: string
-  status: 'active' | 'inactive'
-  ipAddress: string
+  type?: string
+  os?: string
+  lastActive?: string
+  status?: 'active' | 'inactive'
+  ipAddress?: string
 }
 
 export default function DevicesPage() {
-  const [devices, setDevices] = useState<Device[]>([
-    {
-      id: '1',
-      name: 'MacBook Pro',
-      type: 'Laptop',
-      os: 'macOS 14.0',
-      lastActive: '5 minutes ago',
-      status: 'active',
-      ipAddress: '192.168.1.100',
-    },
-    {
-      id: '2',
-      name: 'iPhone 14',
-      type: 'Mobile',
-      os: 'iOS 17.0',
-      lastActive: '2 hours ago',
-      status: 'inactive',
-      ipAddress: '192.168.1.105',
-    },
-    {
-      id: '3',
-      name: 'Windows Desktop',
-      type: 'Desktop',
-      os: 'Windows 11',
-      lastActive: '1 day ago',
-      status: 'inactive',
-      ipAddress: '192.168.1.110',
-    },
-  ])
-
-  const [showAddDevice, setShowAddDevice] = useState(false)
-  const [newDevice, setNewDevice] = useState({ name: '', type: '', os: '' })
   const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleAddDevice = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (newDevice.name && newDevice.type && newDevice.os) {
-      const device: Device = {
-        id: Date.now().toString(),
-        name: newDevice.name,
-        type: newDevice.type,
-        os: newDevice.os,
-        lastActive: 'Just now',
-        status: 'active',
-        ipAddress: '192.168.1.' + Math.floor(Math.random() * 255),
+  // Fetch devices
+  const {
+    data: devices,
+    loading,
+    error: devicesError,
+    refetch,
+  } = useApiPaginated(deviceService.getDevices, 1, 50)
+
+  // Mutation for deactivating device
+  const { mutate: deactivateDevice } = useApiMutation(
+    (id) => deviceService.deactivateDevice(id)
+  )
+
+  const handleRemoveDevice = async (deviceId: string) => {
+    if (window.confirm('Are you sure you want to deactivate this device?')) {
+      try {
+        setError(null)
+        await deactivateDevice(deviceId)
+        setSaved(true)
+        setTimeout(() => setSaved(false), 3000)
+        refetch()
+      } catch (err) {
+        setError('Failed to deactivate device')
+        console.error('Failed to deactivate device:', err)
       }
-      setDevices([...devices, device])
-      setNewDevice({ name: '', type: '', os: '' })
-      setShowAddDevice(false)
-      setSaved(true)
-      setTimeout(() => setSaved(false), 3000)
     }
-  }
-
-  const handleRemoveDevice = (deviceId: string) => {
-    setDevices(devices.filter((d) => d.id !== deviceId))
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
-  }
-
-  const handleLogoutDevice = (deviceId: string) => {
-    setDevices(
-      devices.map((d) =>
-        d.id === deviceId ? { ...d, status: 'inactive', lastActive: 'just logged out' } : d
-      )
-    )
   }
 
   return (
@@ -98,56 +63,77 @@ export default function DevicesPage() {
           <AlertBanner type="success" message="Device settings updated successfully" />
         )}
 
-        {/* Add Device */}
-        <Widget title="Add New Device">
-          {!showAddDevice ? (
-            <Button
-              onClick={() => setShowAddDevice(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              Add Device
-            </Button>
+        {(error || devicesError) && (
+          <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-red-600" />
+            <p className="text-red-800">{error || devicesError}</p>
+          </div>
+        )}
+
+        {/* Devices List */}
+        <Widget title="Active Devices" icon={<Smartphone className="w-5 h-5" />}>
+          {loading ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+          ) : devices.length > 0 ? (
+            <div className="space-y-3">
+              {devices.map((device) => (
+                <div
+                  key={device._id || device.id}
+                  className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
+                >
+                  <div className="flex items-center gap-3">
+                    <Smartphone className="w-5 h-5 text-gray-600" />
+                    <div>
+                      <p className="font-medium text-gray-900">{device.name}</p>
+                      <p className="text-sm text-gray-600">
+                        {device.type} • {device.os} • {device.ipAddress}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Last active: {device.lastActive || 'Unknown'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`px-2 py-1 rounded text-xs font-medium ${
+                        device.status === 'active'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-gray-100 text-gray-700'
+                      }`}
+                    >
+                      {device.status || 'active'}
+                    </span>
+                    <button
+                      onClick={() => handleRemoveDevice(device._id || device.id)}
+                      className="text-red-600 hover:text-red-800"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : (
-            <form onSubmit={handleAddDevice} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Input
-                  label="Device Name"
-                  type="text"
-                  placeholder="e.g., My iPhone"
-                  value={newDevice.name}
-                  onChange={(e) => setNewDevice({ ...newDevice, name: e.target.value })}
-                />
-                <select
-                  value={newDevice.type}
-                  onChange={(e) => setNewDevice({ ...newDevice, type: e.target.value })}
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-gray-900"
-                >
-                  <option value="">Select Type</option>
-                  <option value="Laptop">Laptop</option>
-                  <option value="Desktop">Desktop</option>
-                  <option value="Mobile">Mobile</option>
-                  <option value="Tablet">Tablet</option>
-                </select>
-                <Input
-                  label="Operating System"
-                  type="text"
-                  placeholder="e.g., iOS 17.0"
-                  value={newDevice.os}
-                  onChange={(e) => setNewDevice({ ...newDevice, os: e.target.value })}
-                />
-              </div>
-              <div className="flex gap-2">
-                <button
-                  type="submit"
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
-                >
-                  Add Device
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowAddDevice(false)}
-                  className="bg-gray-300 hover:bg-gray-400 text-gray-900 px-4 py-2 rounded-lg"
+            <p className="text-gray-500 py-8 text-center">No devices found</p>
+          )}
+        </Widget>
+
+        {/* Security Info */}
+        <Widget title="Device Security" icon={<Shield className="w-5 h-5" />}>
+          <div className="space-y-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <p className="text-sm text-gray-700">
+                These are all devices that have accessed your account. If you see any unfamiliar devices, 
+                you can deactivate them immediately to protect your account.
+              </p>
+            </div>
+          </div>
+        </Widget>
+      </div>
+    </DashboardLayout>
+  )
                 >
                   Cancel
                 </button>
