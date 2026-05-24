@@ -1,42 +1,66 @@
-interface Column {
+import { classNames } from '../../utils/helpers'
+
+interface Column<T> {
   key: string
-  label: string
-  render?: (value: unknown) => React.ReactNode
+  header: string
+  render?: (item: T) => React.ReactNode
+  className?: string
 }
 
-interface TableProps {
-  columns: Column[]
-  data: Record<string, unknown>[]
+interface TableProps<T> {
+  columns: Column<T>[]
+  data: T[]
   loading?: boolean
+  emptyMessage?: string
+  onRowClick?: (item: T) => void
 }
 
-export function Table({ columns, data, loading = false }: TableProps) {
+export default function Table<T extends Record<string, any>>({
+  columns,
+  data,
+  loading = false,
+  emptyMessage = 'No data found',
+  onRowClick
+}: TableProps<T>) {
   if (loading) {
-    return <div className="text-center py-8">Loading...</div>
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" />
+      </div>
+    )
   }
 
-  if (data.length === 0) {
-    return <div className="text-center py-8 text-gray-500">No data available</div>
+  if (!data.length) {
+    return (
+      <div className="text-center py-12 text-gray-500 dark:text-gray-400">{emptyMessage}</div>
+    )
   }
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full">
+      <table className="w-full text-sm">
         <thead>
-          <tr className="bg-gray-100 border-b">
+          <tr className="border-b border-gray-200 dark:border-gray-700">
             {columns.map((col) => (
-              <th key={col.key} className="px-6 py-3 text-left text-sm font-semibold">
-                {col.label}
+              <th
+                key={col.key}
+                className={classNames('px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider', col.className)}
+              >
+                {col.header}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody>
-          {data.map((row, idx) => (
-            <tr key={idx} className="border-b hover:bg-gray-50">
+        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+          {data.map((item, index) => (
+            <tr
+              key={index}
+              onClick={() => onRowClick?.(item)}
+              className={classNames('transition-colors', onRowClick && 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800')}
+            >
               {columns.map((col) => (
-                <td key={col.key} className="px-6 py-3 text-sm">
-                  {col.render ? col.render(row[col.key]) : String(row[col.key])}
+                <td key={col.key} className={classNames('px-4 py-3', col.className)}>
+                  {col.render ? col.render(item) : item[col.key]}
                 </td>
               ))}
             </tr>

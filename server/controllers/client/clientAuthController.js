@@ -5,6 +5,7 @@ import Device from '../../models/client/DeviceModel.js';
 import LicenseKey from '../../models/admin/LicenseKeyModel.js';
 import PendingActivation from '../../models/admin/PendingActivationModel.js';
 import Payment from '../../models/admin/PaymentModel.js';
+import SystemSettings from '../../models/admin/SystemSettingsModel.js';
 import AuditLog from '../../models/admin/AuditLogModel.js';
 import { generateClientToken } from '../../utils/tokenUtils.js';
 import { isValidEmail, isValidPassword, isValidLicenseKey } from '../../utils/validationUtils.js';
@@ -16,6 +17,7 @@ import env from '../../config/env.js';
 const clientLogin = async (req, res) => {
   try {
     const { email, password } = req.body;
+
     if (!email || !password) {
       return res.status(400).json({ message: 'Email and password are required.' });
     }
@@ -68,8 +70,37 @@ const clientLogin = async (req, res) => {
       return res.status(403).json({ message: 'Trial expired. Please upgrade.' });
     }
 
-    if (!organization.isActive) {
-      return res.status(403).json({ message: 'Subscription inactive.' });
+    if (organization.isPlanExpired()) {
+      return res.status(403).json({ message: 'Subscription expired. Please renew.' });
+    }
+
+    if (organization.plan !== 'trial' && !organization.licenseKey) {
+      return res.status(403).json({
+        message: 'Your payment is being processed. License key will be sent via SMS & Email within 24 hours.',
+        pendingApproval: true
+      });
+    }
+
+    const deviceId = req.headers['x-device-id'];
+    if (!deviceId) {
+      return res.status(400).json({
+        message: 'Device ID is required. Activate your license first.',
+        requireActivation: true
+      });
+    }
+
+    const device = await Device.findOne({
+      deviceId,
+      organizationId: user.organizationId,
+      isActive: true,
+      isVerified: true
+    });
+
+    if (!device) {
+      return res.status(403).json({
+        message: 'Device not activated. Please activate your license first.',
+        requireActivation: true
+      });
     }
 
     await user.resetLoginAttempts();
@@ -84,7 +115,8 @@ const clientLogin = async (req, res) => {
       actionType: 'auth_login',
       performedBy: user._id,
       performedByModel: 'ClientUser',
-      description: `${user.fullName} logged in`,
+      description: `${user.fullName} logged in from device ${deviceId}`,
+      deviceId,
       ipAddress: req.ip,
       severity: 'info'
     });
@@ -262,23 +294,22 @@ const activateLicense = async (req, res) => {
       await license.save();
     }
 
-    const existingDevice = await Device.findOne({ deviceId, organizationId: organization._id, isActive: true });
-    if (!existingDevice) {
-      await Device.create({
-        organizationId: organization._id,
-        userId: null,
-        deviceId,
-        deviceName: deviceName || 'Unknown Device',
-        deviceType: deviceType || 'desktop',
-        operatingSystem: operatingSystem || '',
-        browser: browser || '',
-        ipAddress: req.ip,
-        isVerified: true,
-        verifiedAt: new Date(),
-        verificationMethod: 'license',
-        trustLevel: 'trusted'
-      });
-    }
+const existingDevice = await Device.findOne({ deviceId, organizationId: organization._id, isActive: true });
+if (!existingDevice) {
+  await Device.create({
+    organizationId: organization._id,
+    deviceId,
+    deviceName: deviceName || 'Unknown Device',
+    deviceType: deviceType || 'desktop',
+    operatingSystem: operatingSystem || '',
+    browser: browser || '',
+    ipAddress: req.ip,
+    isVerified: true,
+    verifiedAt: new Date(),
+    verificationMethod: 'license',
+    trustLevel: 'trusted'
+  });
+}
 
     await AuditLog.create({
       organizationId: organization._id,
@@ -587,6 +618,53 @@ const changeClientPassword = async (req, res) => {
   }
 };
 
+const getPublicSettings = async (req, res) => {
+  try {
+    const settings = await SystemSettings.findOne().select('systemName general footer legal pricing paymentConfig');
+    if (!settings) {
+      return res.json({
+        systemName: 'SupplySense',
+        general: { heroTitle: 'Intelligent Supply Chain Management', heroSubtitle: 'Predict, monitor, and optimize your supply chain with AI-powered insights.', aboutContent: '', email: '', phone: '', address: '' },
+        footer: { copyright: 'SupplySense Systems', columns: [] },
+        legal: { terms: '', privacy: '', cookies: '' },
+        pricing: { trial: { duration: 14 }, standard: { monthly: 0, yearly: 0, permanent: 0 }, proplus: { monthly: 0, yearly: 0, permanent: 0 } },
+        paymentConfig: { currency: 'KSh' }
+      });
+    }
+
+    const rates = { KSh: 1, USD: 0.0067, EUR: 0.0062, GBP: 0.0053 };
+    const fromKSh = (amount, toCurrency) => {
+      if (toCurrency === 'KSh') return amount;
+      return Math.round(amount * rates[toCurrency] * 100) / 100;
+    };
+
+    const currency = settings.paymentConfig?.currency || 'KSh';
+    const p = settings.pricing;
+
+    const converted = {
+      trial: { duration: p.trial.duration },
+      standard: {
+        monthly: fromKSh(p.standard.monthly, currency),
+        yearly: fromKSh(p.standard.yearly, currency),
+        permanent: fromKSh(p.standard.permanent, currency)
+      },
+      proplus: {
+        monthly: fromKSh(p.proplus.monthly, currency),
+        yearly: fromKSh(p.proplus.yearly, currency),
+        permanent: fromKSh(p.proplus.permanent, currency)
+      }
+    };
+
+    const settingsObj = settings.toObject();
+    settingsObj.pricing = converted;
+
+    res.json(settingsObj);
+  } catch (error) {
+    console.error('Public settings error:', error);
+    res.status(500).json({ message: 'Internal server error.' });
+  }
+};
+
 export {
   clientLogin,
   clientLogout,
@@ -599,5 +677,6 @@ export {
   submitManualPayment,
   getProfile,
   updateProfile,
-  changeClientPassword
+  changeClientPassword,
+  getPublicSettings
 };

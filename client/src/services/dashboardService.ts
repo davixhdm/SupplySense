@@ -1,7 +1,13 @@
-import { apiFetch } from './api'
-import { DashboardStats, Dashboard } from './types'
+import api from './api'
 
 export const dashboardService = {
-  getStats: () => apiFetch<DashboardStats>('/dashboard/stats'),
-  getCharts: () => apiFetch<any>('/dashboard/charts'),
+  getStats: async () => {
+    const { data } = await api.get('/client/dashboard/stats')
+    return data
+  },
+
+  getCharts: async () => {
+    const { data } = await api.get('/client/dashboard/charts')
+    return data
+  }
 }

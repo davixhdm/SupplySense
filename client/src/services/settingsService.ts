@@ -1,53 +1,104 @@
-import { apiFetch } from './api'
-import { CompanyInfo, UserSettings, Device, Backup, User } from './types'
+import api from './api'
 
 export const settingsService = {
-  // Company settings
-  getCompanyInfo: () => apiFetch<CompanyInfo>('/settings/company'),
-  updateCompanyInfo: (data: Partial<CompanyInfo>) =>
-    apiFetch<CompanyInfo>('/settings/company', {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
+  getCompanyInfo: async () => {
+    const { data } = await api.get('/client/company-settings')
+    return data
+  },
 
-  // User preferences
-  getPreferences: () => apiFetch<UserSettings>('/settings/preferences'),
-  updatePreferences: (data: Partial<UserSettings>) =>
-    apiFetch<UserSettings>('/settings/preferences', {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
+  updateCompanyInfo: async (payload: Record<string, any>) => {
+    const { data } = await api.put('/client/company-settings', payload)
+    return data
+  },
 
-  // Devices
-  getDevices: () => apiFetch<Device[]>('/settings/devices'),
-  addDevice: (data: Partial<Device>) =>
-    apiFetch<Device>('/settings/devices', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-  removeDevice: (id: string) =>
-    apiFetch(`/settings/devices/${id}`, { method: 'DELETE' }),
+  uploadLogo: async (file: File) => {
+    const formData = new FormData()
+    formData.append('logo', file)
+    const { data } = await api.post('/client/company-settings/logo', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    return data
+  },
 
-  // Backups
-  getBackups: () => apiFetch<Backup[]>('/settings/backups'),
-  createBackup: () => apiFetch<Backup>('/settings/backups', { method: 'POST' }),
-  downloadBackup: (id: string) =>
-    apiFetch<Blob>(`/settings/backups/${id}/download`),
-  deleteBackup: (id: string) =>
-    apiFetch(`/settings/backups/${id}`, { method: 'DELETE' }),
+  getPreferences: async () => {
+    const { data } = await api.get('/client/preferences')
+    return data
+  },
 
-  // Users management
-  getUsers: () => apiFetch<User[]>('/settings/users'),
-  addUser: (data: Partial<User>) =>
-    apiFetch<User>('/settings/users', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-  updateUser: (id: string, data: Partial<User>) =>
-    apiFetch<User>(`/settings/users/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
-  deleteUser: (id: string) =>
-    apiFetch(`/settings/users/${id}`, { method: 'DELETE' }),
+  updatePreferences: async (payload: Record<string, any>) => {
+    const { data } = await api.put('/client/preferences', payload)
+    return data
+  },
+
+  getUsers: async () => {
+    const { data } = await api.get('/client/users')
+    return data
+  },
+
+  createUser: async (payload: Record<string, any>) => {
+    const { data } = await api.post('/client/users', payload)
+    return data
+  },
+
+  updateUser: async (id: string, payload: Record<string, any>) => {
+    const { data } = await api.put(`/client/users/${id}`, payload)
+    return data
+  },
+
+  deleteUser: async (id: string) => {
+    const { data } = await api.delete(`/client/users/${id}`)
+    return data
+  },
+
+  getDevices: async () => {
+    const { data } = await api.get('/client/devices')
+    return data
+  },
+
+  getDeviceActivity: async (id: string) => {
+    const { data } = await api.get(`/client/devices/${id}/activity`)
+    return data
+  },
+
+  deactivateDevice: async (id: string, reason?: string) => {
+    const { data } = await api.put(`/client/devices/${id}/deactivate`, { reason })
+    return data
+  },
+
+  getBackups: async () => {
+    const { data } = await api.get('/client/backups')
+    return data
+  },
+
+  createBackup: async () => {
+    const { data } = await api.post('/client/backups')
+    return data
+  },
+
+  deleteBackup: async (filename: string) => {
+    const { data } = await api.delete(`/client/backups/${filename}`)
+    return data
+  },
+
+  emailBackup: async (filename: string) => {
+    const { data } = await api.post(`/client/backups/email/${filename}`)
+    return data
+  },
+
+  shareBackup: async (filename: string, email: string) => {
+    const { data } = await api.post(`/client/backups/share/${filename}`, { email })
+    return data
+  },
+
+  restoreBackup: async (filename: string) => {
+    const { data } = await api.post(`/client/backups/restore/${filename}`)
+    return data
+  },
+
+  importBackup: async (formData: FormData) => {
+    const { data } = await api.post('/client/backups/import', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    return data
+  }
 }

@@ -8,6 +8,30 @@ const systemSettingsSchema = new mongoose.Schema(
     clientAppUrl: { type: String, default: '' },
     adminAppUrl: { type: String, default: '' },
     brevoSender: { type: String, default: '' },
+    general: {
+      email: { type: String, default: '' },
+      phone: { type: String, default: '' },
+      address: { type: String, default: '' },
+      aboutContent: { type: String, default: '' },
+      heroTitle: { type: String, default: 'Intelligent Supply Chain Management' },
+      heroSubtitle: { type: String, default: 'Predict, monitor, and optimize your supply chain with AI-powered insights.' }
+    },
+    footer: {
+      copyright: { type: String, default: 'SupplySense Systems' },
+      columns: [{
+        title: String,
+        links: [{
+          label: String,
+          url: String,
+          scrollTo: String
+        }]
+      }]
+    },
+    legal: {
+      terms: { type: String, default: '' },
+      privacy: { type: String, default: '' },
+      cookies: { type: String, default: '' }
+    },
     paymentConfig: {
       stripeEnabled: { type: Boolean, default: false },
       mpesaEnabled: { type: Boolean, default: false },
@@ -17,6 +41,13 @@ const systemSettingsSchema = new mongoose.Schema(
         sendMoney: { type: Boolean, default: false },
         paybill: { type: Boolean, default: false },
         till: { type: Boolean, default: false }
+      },
+      mpesaNumbers: {
+        sendMoneyPhone: { type: String, default: '' },
+        paybillBusinessNumber: { type: String, default: '' },
+        paybillAccountName: { type: String, default: '' },
+        tillNumber: { type: String, default: '' },
+        tillBusinessName: { type: String, default: '' }
       },
       currency: { type: String, enum: ['KSh', 'USD', 'EUR', 'GBP'], default: 'KSh' }
     },
@@ -37,7 +68,8 @@ const systemSettingsSchema = new mongoose.Schema(
       enabled: { type: Boolean, default: false },
       frequency: { type: String, enum: ['hourly', 'daily', 'weekly', 'monthly'], default: 'daily' },
       time: { type: String, default: '02:00' },
-      email: { type: String, default: '' }
+      email: { type: String, default: '' },
+      sendOnBackup: { type: Boolean, default: false }
     }
   },
   { timestamps: true, collection: 'systemsettings' }

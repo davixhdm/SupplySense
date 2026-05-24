@@ -1,153 +1,108 @@
-import { useState } from 'react'
-import { DashboardLayout } from '../../layouts/DashboardLayout'
-import { Widget } from '../../components/dashboard/Widget'
-import { Table } from '../../components/common/Table'
-import { Input } from '../../components/common/Input'
-import { Button } from '../../components/common/Button'
-import { Badge } from '../../components/common/Badge'
-import { AlertCircle, RefreshCw } from 'lucide-react'
-import { orderService } from '../../services'
-import { useApiPaginated } from '../../hooks'
-
-interface Order {
-  id: string
-  _id?: string
-  orderNumber: string
-  customer: string
-  amount: number
-  status: 'pending' | 'confirmed' | 'shipped' | 'delivered'
-  riskPrediction: 'low' | 'medium' | 'high'
-  date: string
-}
+import { useState, useEffect } from 'react'
+import { orderService } from '../../services/orderService'
+import Table from '../../components/common/Table'
+import Button from '../../components/common/Button'
+import Modal from '../../components/common/Modal'
+import Input from '../../components/common/Input'
+import { formatDate, formatCurrency } from '../../utils/helpers'
+import { ORDER_STATUS_LABELS } from '../../utils/constants'
+import { Plus } from 'lucide-react'
+import toast from 'react-hot-toast'
 
 export default function OrdersPage() {
-  const [search, setSearch] = useState('')
+  const [data, setData] = useState<any>({ orders: [] })
+  const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(1)
+  const [showCreate, setShowCreate] = useState(false)
+  const [showStatus, setShowStatus] = useState<any>(null)
+  const [form, setForm] = useState({ productId: '', supplierId: '', quantity: '1', unitPrice: '', priority: 'medium' })
+  const [statusForm, setStatusForm] = useState({ status: '', notes: '' })
+  const [creating, setCreating] = useState(false)
 
-  // Fetch orders using the hook
-  const {
-    data: orders,
-    loading,
-    error,
-    page,
-    nextPage,
-    prevPage,
-    refetch,
-  } = useApiPaginated(orderService.getOrders, 1, 20)
-
-  const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      pending: 'bg-yellow-100 text-yellow-800',
-      confirmed: 'bg-blue-100 text-blue-800',
-      shipped: 'bg-purple-100 text-purple-800',
-      delivered: 'bg-green-100 text-green-800',
-    }
-    return colors[status] || 'bg-gray-100 text-gray-800'
+  const fetchData = async () => {
+    setLoading(true)
+    try { const res = await orderService.getAll({ page }); setData(res) }
+    catch (err) { toast.error('Failed to load') }
+    finally { setLoading(false) }
   }
 
-  const getRiskColor = (risk: string) => {
-    const colors: Record<string, string> = {
-      low: 'bg-green-100 text-green-800',
-      medium: 'bg-yellow-100 text-yellow-800',
-      high: 'bg-red-100 text-red-800',
-    }
-    return colors[risk] || 'bg-gray-100 text-gray-800'
+  useEffect(() => { fetchData() }, [page])
+
+  const handleCreate = async () => {
+    if (!form.productId || !form.supplierId || !form.unitPrice) { toast.error('Fill required fields'); return }
+    setCreating(true)
+    try {
+      await orderService.create({ ...form, quantity: parseInt(form.quantity), unitPrice: parseFloat(form.unitPrice) })
+      toast.success('Order created')
+      setShowCreate(false)
+      fetchData()
+    } catch (err) { toast.error('Failed') }
+    finally { setCreating(false) }
+  }
+
+  const handleStatusUpdate = async () => {
+    if (!statusForm.status) return
+    try {
+      await orderService.updateStatus(showStatus._id, statusForm.status, statusForm.notes)
+      toast.success('Status updated')
+      setShowStatus(null)
+      fetchData()
+    } catch (err) { toast.error('Failed') }
   }
 
   const columns = [
-    { key: 'orderNumber', label: 'Order #' },
-    { key: 'customer', label: 'Customer' },
-    { key: 'amount', label: 'Amount', render: (val: number) => `$${val}` },
-    {
-      key: 'status',
-      label: 'Status',
-      render: (val: string) => (
-        <span className={`px-2 py-1 rounded text-sm font-medium ${getStatusColor(val)}`}>
-          {val}
-        </span>
-      ),
-    },
-    {
-      key: 'riskPrediction',
-      label: 'Fulfillment Risk',
-      render: (val: string) => (
-        <span className={`px-2 py-1 rounded text-sm font-medium ${getRiskColor(val)}`}>
-          {val}
-        </span>
-      ),
-    },
-    { key: 'date', label: 'Date' },
+    { key: 'orderNumber', header: 'Order #', render: (o: any) => <span className="font-mono text-xs">{o.orderNumber}</span> },
+    { key: 'productId', header: 'Product', render: (o: any) => o.productId?.name || '—' },
+    { key: 'supplierId', header: 'Supplier', render: (o: any) => o.supplierId?.name || '—' },
+    { key: 'quantity', header: 'Qty' },
+    { key: 'totalAmount', header: 'Total', render: (o: any) => formatCurrency(o.totalAmount) },
+    { key: 'status', header: 'Status', render: (o: any) => (
+      <span className={`px-2 py-0.5 rounded text-xs font-medium ${o.status === 'delivered' ? 'bg-green-100 text-green-800' : o.status === 'cancelled' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>
+        {ORDER_STATUS_LABELS[o.status] || o.status}
+      </span>
+    )},
+    { key: 'actions', header: '', render: (o: any) => (
+      <Button variant="ghost" size="sm" onClick={() => { setShowStatus(o); setStatusForm({ status: o.status, notes: '' }) }}>Update</Button>
+    )}
   ]
 
   return (
-    // After getting orders
-    <DashboardLayout>
-      <div className="space-y-6">
-        {/* Error Display */}
-        {error && (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 text-red-600" />
-              <p className="text-red-800">{error}</p>
-            </div>
-            <button
-              onClick={refetch}
-              className="text-red-600 hover:text-red-800 flex items-center gap-1"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Retry
-            </button>
-          </div>
-        )}
-
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold">Orders</h1>
-          <Button variant="primary">New Order</Button>
-        </div>
-
-        {/* Search */}
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <Input
-            type="text"
-            placeholder="Search orders..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full"
-          />
-        </div>
-
-        {/* Orders Table */}
-        <Widget title="Recent Orders">
-          {loading ? (
-            <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            </div>
-          ) : orders && orders.length > 0 ? (
-            <>
-              <Table data={orders} columns={columns} />
-              <div className="mt-4 flex justify-between items-center border-t pt-4">
-                <span className="text-sm text-gray-600">
-                  Page {page} | Showing {orders.length} orders
-                </span>
-                <div className="flex gap-2">
-                  <Button
-                    variant="secondary"
-                    onClick={prevPage}
-                    disabled={page === 1}
-                  >
-                    Previous
-                  </Button>
-                  <Button variant="secondary" onClick={nextPage}>
-                    Next
-                  </Button>
-                </div>
-              </div>
-            </>
-          ) : (
-            <p className="text-gray-500 py-8 text-center">No orders found</p>
-          )}
-        </Widget>
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Orders</h1>
+        <Button onClick={() => setShowCreate(true)}><Plus size={16} className="mr-1" /> New Order</Button>
       </div>
-    </DashboardLayout>
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <Table columns={columns} data={data.orders || []} loading={loading} />
+      </div>
+      {data.pagination && data.pagination.pages > 1 && (
+        <div className="flex justify-center gap-2 mt-4">
+          {Array.from({ length: data.pagination.pages }, (_, i) => (
+            <button key={i} onClick={() => setPage(i + 1)} className={`px-3 py-1 rounded text-sm ${page === i + 1 ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700'}`}>{i + 1}</button>
+          ))}
+        </div>
+      )}
+      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="New Order">
+        <div className="space-y-3">
+          <Input label="Product ID" value={form.productId} onChange={(e) => setForm({ ...form, productId: e.target.value })} />
+          <Input label="Supplier ID" value={form.supplierId} onChange={(e) => setForm({ ...form, supplierId: e.target.value })} />
+          <Input label="Quantity" type="number" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} />
+          <Input label="Unit Price" type="number" value={form.unitPrice} onChange={(e) => setForm({ ...form, unitPrice: e.target.value })} />
+          <Button onClick={handleCreate} loading={creating} className="w-full">Create</Button>
+        </div>
+      </Modal>
+      <Modal isOpen={!!showStatus} onClose={() => setShowStatus(null)} title="Update Status">
+        <div className="space-y-3">
+          <div>
+            <label className="block text-sm font-medium mb-1">Status</label>
+            <select value={statusForm.status} onChange={(e) => setStatusForm({ ...statusForm, status: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm dark:bg-gray-800">
+              {Object.entries(ORDER_STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+          </div>
+          <Input label="Notes" value={statusForm.notes} onChange={(e) => setStatusForm({ ...statusForm, notes: e.target.value })} />
+          <Button onClick={handleStatusUpdate} className="w-full">Update</Button>
+        </div>
+      </Modal>
+    </div>
   )
 }

@@ -1,37 +1,62 @@
-import { Link } from 'react-router-dom'
-import { BarChart3, Package, TrendingUp, Users, Settings, AlertCircle } from 'lucide-react'
+import { NavLink } from 'react-router-dom'
+import {
+  LayoutDashboard, ArrowLeftRight, Package, ShoppingCart,
+  Users, Truck, UserRound, BarChart3, Bell, Settings, ChevronLeft, ChevronRight
+} from 'lucide-react'
+import { useDashboardStore } from '../../store/dashboardStore'
+import { classNames } from '../../utils/helpers'
 
-export function Sidebar() {
-  const menuItems = [
-    { label: 'Dashboard', icon: BarChart3, href: '/dashboard' },
-    { label: 'Orders', icon: Package, href: '/dashboard/orders' },
-    { label: 'Inventory', icon: TrendingUp, href: '/dashboard/inventory' },
-    { label: 'Suppliers', icon: Users, href: '/dashboard/suppliers' },
-    { label: 'Customers', icon: Users, href: '/dashboard/customers' },
-    { label: 'Alerts', icon: AlertCircle, href: '/dashboard/alerts' },
-    { label: 'Settings', icon: Settings, href: '/dashboard/settings' },
-  ]
+const navItems = [
+  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', end: true },
+  { to: '/dashboard/transactions', icon: ArrowLeftRight, label: 'Transactions' },
+  { to: '/dashboard/orders', icon: ShoppingCart, label: 'Orders' },
+  { to: '/dashboard/inventory', icon: Package, label: 'Inventory' },
+  { to: '/dashboard/suppliers', icon: Truck, label: 'Suppliers' },
+  { to: '/dashboard/customers', icon: Users, label: 'Customers' },
+  { to: '/dashboard/employees', icon: UserRound, label: 'Employees' },
+  { to: '/dashboard/ai-insights', icon: BarChart3, label: 'AI Insights' },
+  { to: '/dashboard/alerts', icon: Bell, label: 'Alerts' },
+  { to: '/dashboard/settings', icon: Settings, label: 'Settings' },
+]
+
+export default function Sidebar() {
+  const { sidebarCollapsed, toggleSidebar } = useDashboardStore()
 
   return (
-    <div className="w-64 bg-gray-900 text-white h-screen overflow-y-auto fixed left-0 top-0">
-      <div className="p-6 border-b border-gray-800">
-        <h1 className="text-2xl font-bold text-blue-400">SupplySense</h1>
+    <aside
+      className={classNames(
+        'fixed left-0 top-0 h-full bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 z-40 transition-all duration-300 flex flex-col',
+        sidebarCollapsed ? 'w-20' : 'w-64'
+      )}
+    >
+      <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200 dark:border-gray-800">
+        {!sidebarCollapsed && <span className="text-lg font-bold text-primary-600">SupplySense</span>}
+        <button onClick={toggleSidebar} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500">
+          {sidebarCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
+        </button>
       </div>
-      <nav className="p-4">
-        {menuItems.map((item) => {
-          const Icon = item.icon
-          return (
-            <Link
-              key={item.label}
-              to={item.href}
-              className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
-            >
-              <Icon size={20} />
-              <span>{item.label}</span>
-            </Link>
-          )
-        })}
+
+      <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
+        {navItems.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            end={item.end}
+            className={({ isActive }) =>
+              classNames(
+                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+                isActive
+                  ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-400'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800',
+                sidebarCollapsed && 'justify-center px-2'
+              )
+            }
+          >
+            <item.icon size={20} />
+            {!sidebarCollapsed && <span>{item.label}</span>}
+          </NavLink>
+        ))}
       </nav>
-    </div>
+    </aside>
   )
 }

@@ -1,154 +1,79 @@
-import { useState } from 'react'
-import { DashboardLayout } from '../../layouts/DashboardLayout'
-import { Widget } from '../../components/dashboard/Widget'
-import { Table } from '../../components/common/Table'
-import { Input } from '../../components/common/Input'
-import { Button } from '../../components/common/Button'
-import { Star, AlertCircle, RefreshCw } from 'lucide-react'
-import { supplierService } from '../../services'
-import { useApiPaginated } from '../../hooks'
-
-interface Supplier {
-  id: string
-  _id?: string
-  name: string
-  location: string
-  reliabilityScore: number
-  onTimeDeliveryRate: number
-  totalOrders: number
-  activeProducts?: number
-  averageRating?: number
-}
+import { useState, useEffect } from 'react'
+import { supplierService } from '../../services/supplierService'
+import Table from '../../components/common/Table'
+import Button from '../../components/common/Button'
+import Modal from '../../components/common/Modal'
+import Input from '../../components/common/Input'
+import { Plus } from 'lucide-react'
+import toast from 'react-hot-toast'
 
 export default function SuppliersPage() {
-  const [search, setSearch] = useState('')
+  const [data, setData] = useState<any>({ suppliers: [] })
+  const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(1)
+  const [showCreate, setShowCreate] = useState(false)
+  const [form, setForm] = useState({ name: '', email: '', phone: '', contactPerson: '', deliveryTimeline: '', paymentTerms: '' })
+  const [creating, setCreating] = useState(false)
 
-  // Fetch suppliers using the hook
-  const {
-    data: suppliers,
-    loading,
-    error,
-    page,
-    nextPage,
-    prevPage,
-    refetch,
-  } = useApiPaginated(supplierService.getSuppliers, 1, 20)
-
-  const getReliabilityColor = (score: number) => {
-    if (score >= 95) return 'bg-green-100 text-green-800'
-    if (score >= 85) return 'bg-blue-100 text-blue-800'
-    return 'bg-yellow-100 text-yellow-800'
+  const fetchData = async () => {
+    setLoading(true)
+    try { const res = await supplierService.getAll({ page }); setData(res) }
+    catch (err) { toast.error('Failed') }
+    finally { setLoading(false) }
   }
 
-  const renderStars = (score: number) => {
-    const rating = Math.min(5, score / 20) // Convert percentage to rating
-    return (
-      <div className="flex items-center gap-1">
-        {[...Array(5)].map((_, i) => (
-          <Star
-            key={i}
-            className={`w-4 h-4 ${i < Math.floor(rating) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
-          />
-        ))}
-        <span className="ml-2 text-sm text-gray-600">{rating.toFixed(1)}</span>
-      </div>
-    )
+  useEffect(() => { fetchData() }, [page])
+
+  const handleCreate = async () => {
+    if (!form.name || !form.email) { toast.error('Name and email required'); return }
+    setCreating(true)
+    try {
+      await supplierService.create({ ...form, deliveryTimeline: parseInt(form.deliveryTimeline) || 0 })
+      toast.success('Supplier created')
+      setShowCreate(false)
+      setForm({ name: '', email: '', phone: '', contactPerson: '', deliveryTimeline: '', paymentTerms: '' })
+      fetchData()
+    } catch (err: any) { toast.error(err?.response?.data?.message || 'Failed') }
+    finally { setCreating(false) }
   }
 
   const columns = [
-    { key: 'name', label: 'Supplier Name' },
-    { key: 'location', label: 'Location' },
-    {
-      key: 'reliabilityScore',
-      label: 'Reliability',
-      render: (val: number) => (
-        <span className={`px-2 py-1 rounded text-sm font-medium ${getReliabilityColor(val)}`}>
-          {val}%
-        </span>
-      ),
-    },
-    { 
-      key: 'onTimeDeliveryRate', 
-      label: 'On-Time Delivery', 
-      render: (val: number) => `${val}%` 
-    },
-    { key: 'totalOrders', label: 'Total Orders' },
-    {
-      key: 'averageRating',
-      label: 'Performance',
-      render: (val: number) => renderStars(val || 0),
-    },
+    { key: 'name', header: 'Name', render: (s: any) => <span className="font-medium">{s.name}</span> },
+    { key: 'email', header: 'Email' },
+    { key: 'phone', header: 'Phone' },
+    { key: 'reliabilityScore', header: 'Reliability', render: (s: any) => (
+      <span className={`font-medium ${s.reliabilityScore >= 80 ? 'text-green-600' : s.reliabilityScore >= 50 ? 'text-yellow-600' : 'text-red-600'}`}>{s.reliabilityScore}%</span>
+    )},
+    { key: 'totalOrders', header: 'Orders' }
   ]
 
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
-        {/* Error Display */}
-        {error && (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 text-red-600" />
-              <p className="text-red-800">{error}</p>
-            </div>
-            <button
-              onClick={refetch}
-              className="text-red-600 hover:text-red-800 flex items-center gap-1"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Retry
-            </button>
-          </div>
-        )}
-
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-gray-900">Suppliers</h1>
-          <Button onClick={() => {}}>Add Supplier</Button>
-        </div>
-
-        {/* Search */}
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <Input
-            type="text"
-            placeholder="Search suppliers by name or location..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full"
-          />
-        </div>
-
-        {/* Suppliers Table */}
-        <Widget title="Suppliers">
-          {loading ? (
-            <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            </div>
-          ) : suppliers.length > 0 ? (
-            <>
-              <Table columns={columns} data={suppliers} />
-              <div className="mt-4 flex justify-between items-center">
-                <span className="text-sm text-gray-600">
-                  Page {page} | Suppliers: {suppliers.length}
-                </span>
-                <div className="flex gap-2">
-                  <Button
-                    variant="secondary"
-                    onClick={prevPage}
-                    disabled={page === 1}
-                  >
-                    Previous
-                  </Button>
-                  <Button variant="secondary" onClick={nextPage}>
-                    Next
-                  </Button>
-                </div>
-              </div>
-            </>
-          ) : (
-            <p className="text-gray-500 py-8 text-center">No suppliers found</p>
-          )}
-        </Widget>
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Suppliers</h1>
+        <Button onClick={() => setShowCreate(true)}><Plus size={16} className="mr-1" /> Add Supplier</Button>
       </div>
-    </DashboardLayout>
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <Table columns={columns} data={data.suppliers || []} loading={loading} />
+      </div>
+      {data.pagination && data.pagination.pages > 1 && (
+        <div className="flex justify-center gap-2 mt-4">
+          {Array.from({ length: data.pagination.pages }, (_, i) => (
+            <button key={i} onClick={() => setPage(i + 1)} className={`px-3 py-1 rounded text-sm ${page === i + 1 ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700'}`}>{i + 1}</button>
+          ))}
+        </div>
+      )}
+      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Add Supplier">
+        <div className="space-y-3">
+          <Input label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <Input label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <Input label="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          <Input label="Contact Person" value={form.contactPerson} onChange={(e) => setForm({ ...form, contactPerson: e.target.value })} />
+          <Input label="Delivery Timeline (days)" type="number" value={form.deliveryTimeline} onChange={(e) => setForm({ ...form, deliveryTimeline: e.target.value })} />
+          <Input label="Payment Terms" value={form.paymentTerms} onChange={(e) => setForm({ ...form, paymentTerms: e.target.value })} />
+          <Button onClick={handleCreate} loading={creating} className="w-full">Create</Button>
+        </div>
+      </Modal>
+    </div>
   )
 }

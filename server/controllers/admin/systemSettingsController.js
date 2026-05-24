@@ -12,8 +12,9 @@ const getSystemSettings = async (req, res) => {
 
 const updateSystemSettings = async (req, res) => {
   try {
-    const { systemName, licenseKeyPrefix, trialDuration, clientAppUrl, adminAppUrl, brevoSender } = req.body;
     const settings = await SystemSettings.getSettings();
+
+    const { systemName, licenseKeyPrefix, trialDuration, clientAppUrl, adminAppUrl, brevoSender, general } = req.body;
 
     if (systemName !== undefined) settings.systemName = systemName;
     if (licenseKeyPrefix !== undefined) settings.licenseKeyPrefix = licenseKeyPrefix;
@@ -21,6 +22,13 @@ const updateSystemSettings = async (req, res) => {
     if (clientAppUrl !== undefined) settings.clientAppUrl = clientAppUrl;
     if (adminAppUrl !== undefined) settings.adminAppUrl = adminAppUrl;
     if (brevoSender !== undefined) settings.brevoSender = brevoSender;
+
+    if (general) {
+      settings.general = {
+        ...settings.general.toObject(),
+        ...general
+      };
+    }
 
     await settings.save();
     res.json(settings);

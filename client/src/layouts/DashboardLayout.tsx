@@ -1,18 +1,19 @@
-import { Sidebar } from '../components/dashboard/Sidebar'
-import { Topbar } from '../components/dashboard/Topbar'
+import { Outlet } from 'react-router-dom'
+import Sidebar from '../components/dashboard/Sidebar'
+import Header from '../components/dashboard/Header'
+import { useDashboardStore } from '../store/dashboardStore'
+import { classNames } from '../utils/helpers'
 
-interface DashboardLayoutProps {
-  children: React.ReactNode
-}
+export default function DashboardLayout() {
+  const sidebarCollapsed = useDashboardStore((state) => state.sidebarCollapsed)
 
-export function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
-    <div>
+    <div className="h-screen flex bg-gray-50 dark:bg-gray-950">
       <Sidebar />
-      <div className="ml-64">
-        <Topbar />
-        <main className="p-8">
-          {children}
+      <div className={classNames('flex-1 flex flex-col transition-all duration-300', sidebarCollapsed ? 'ml-20' : 'ml-64')}>
+        <Header />
+        <main className="flex-1 overflow-y-auto p-6">
+          <Outlet />
         </main>
       </div>
     </div>

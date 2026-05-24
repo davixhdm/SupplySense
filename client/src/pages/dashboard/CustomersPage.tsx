@@ -1,165 +1,82 @@
-import { useState } from 'react'
-import { DashboardLayout } from '../../layouts/DashboardLayout'
-import { Widget } from '../../components/dashboard/Widget'
-import { Table } from '../../components/common/Table'
-import { Input } from '../../components/common/Input'
-import { Button } from '../../components/common/Button'
-import { AlertCircle, RefreshCw } from 'lucide-react'
-import { customerService } from '../../services'
-import { useApiPaginated } from '../../hooks'
-
-interface Customer {
-  id: string
-  _id?: string
-  name: string
-  email: string
-  phone: string
-  totalOrders: number
-  totalValue: number
-  churnRisk?: 'low' | 'medium' | 'high'
-  segment?: string
-  lastOrderDate: string
-}
+import { useState, useEffect } from 'react'
+import { customerService } from '../../services/customerService'
+import Table from '../../components/common/Table'
+import Button from '../../components/common/Button'
+import Modal from '../../components/common/Modal'
+import Input from '../../components/common/Input'
+import { formatCurrency } from '../../utils/helpers'
+import { Plus } from 'lucide-react'
+import toast from 'react-hot-toast'
 
 export default function CustomersPage() {
-  const [search, setSearch] = useState('')
+  const [data, setData] = useState<any>({ customers: [] })
+  const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(1)
+  const [showCreate, setShowCreate] = useState(false)
+  const [form, setForm] = useState({ fullName: '', email: '', phone: '', customerType: 'individual' })
+  const [creating, setCreating] = useState(false)
 
-  // Fetch customers using the hook
-  const {
-    data: customers,
-    loading,
-    error,
-    page,
-    nextPage,
-    prevPage,
-    refetch,
-  } = useApiPaginated(customerService.getCustomers, 1, 20)
+  const fetchData = async () => {
+    setLoading(true)
+    try { const res = await customerService.getAll({ page }); setData(res) }
+    catch (err) { toast.error('Failed') }
+    finally { setLoading(false) }
+  }
 
-  const getChurnRiskColor = (risk?: string) => {
-    const colors: Record<string, string> = {
-      low: 'bg-green-100 text-green-800',
-      medium: 'bg-yellow-100 text-yellow-800',
-      high: 'bg-red-100 text-red-800',
-    }
-    return colors[risk || 'low'] || 'bg-gray-100 text-gray-800'
+  useEffect(() => { fetchData() }, [page])
+
+  const handleCreate = async () => {
+    if (!form.fullName) { toast.error('Name required'); return }
+    setCreating(true)
+    try { await customerService.create(form); toast.success('Customer created'); setShowCreate(false); fetchData() }
+    catch (err) { toast.error('Failed') }
+    finally { setCreating(false) }
   }
 
   const columns = [
-    { key: 'name', label: 'Customer Name' },
-    { key: 'email', label: 'Email' },
-    { key: 'phone', label: 'Phone' },
-    { key: 'totalOrders', label: 'Total Orders' },
-    {
-      key: 'totalSpent',
-      label: 'Lifetime Value',
-      render: (val: number) => `$${(val || 0).toLocaleString()}`,
-    },
-    { key: 'lastOrderDate', label: 'Last Order' },
+    { key: 'fullName', header: 'Name', render: (c: any) => <span className="font-medium">{c.fullName}</span> },
+    { key: 'email', header: 'Email' },
+    { key: 'phone', header: 'Phone' },
+    { key: 'totalSpent', header: 'Total Spent', render: (c: any) => formatCurrency(c.totalSpent) },
+    { key: 'purchaseCount', header: 'Purchases' },
+    { key: 'churnRisk', header: 'Churn Risk', render: (c: any) => (
+      <span className={`font-medium ${c.churnRisk >= 60 ? 'text-red-600' : c.churnRisk >= 30 ? 'text-yellow-600' : 'text-green-600'}`}>{c.churnRisk}%</span>
+    )}
   ]
 
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
-        {/* Error Display */}
-        {error && (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 text-red-600" />
-              <p className="text-red-800">{error}</p>
-            </div>
-            <button
-              onClick={refetch}
-              className="text-red-600 hover:text-red-800 flex items-center gap-1"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Retry
-            </button>
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Customers</h1>
+        <Button onClick={() => setShowCreate(true)}><Plus size={16} className="mr-1" /> Add Customer</Button>
+      </div>
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <Table columns={columns} data={data.customers || []} loading={loading} />
+      </div>
+      {data.pagination && data.pagination.pages > 1 && (
+        <div className="flex justify-center gap-2 mt-4">
+          {Array.from({ length: data.pagination.pages }, (_, i) => (
+            <button key={i} onClick={() => setPage(i + 1)} className={`px-3 py-1 rounded text-sm ${page === i + 1 ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700'}`}>{i + 1}</button>
+          ))}
+        </div>
+      )}
+      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Add Customer">
+        <div className="space-y-3">
+          <Input label="Full Name" value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} />
+          <Input label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <Input label="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          <div>
+            <label className="block text-sm font-medium mb-1">Type</label>
+            <select value={form.customerType} onChange={(e) => setForm({ ...form, customerType: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm dark:bg-gray-800">
+              <option value="individual">Individual</option>
+              <option value="business">Business</option>
+              <option value="wholesale">Wholesale</option>
+              <option value="vip">VIP</option>
+            </select>
           </div>
-        )}
-
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold">Customers</h1>
-          <Button variant="primary">Add Customer</Button>
+          <Button onClick={handleCreate} loading={creating} className="w-full">Create</Button>
         </div>
-
-        {/* Search */}
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <Input
-            type="text"
-            placeholder="Search customers by name or email..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full"
-          />
-        </div>
-
-        {/* Customers Table */}
-        <Widget title="Customers">
-          {loading ? (
-            <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            </div>
-          ) : customers && customers.length > 0 ? (
-            <>
-              <Table data={customers} columns={columns} />
-              <div className="mt-4 flex justify-between items-center border-t pt-4">
-                <span className="text-sm text-gray-600">
-                  Page {page} | Showing {customers.length} customers
-                </span>
-                <div className="flex gap-2">
-                  <Button
-                    variant="secondary"
-                    onClick={prevPage}
-                    disabled={page === 1}
-                  >
-                    Previous
-                  </Button>
-                  <Button variant="secondary" onClick={nextPage}>
-                    Next
-                  </Button>
-                </div>
-              </div>
-            </>
-          ) : (
-            <p className="text-gray-500 py-8 text-center">No customers found</p>
-          )}
-        </Widget>
-      </div>
-    </DashboardLayout>
-  )
-}
-            <option>Startup</option>
-          </select>
-          <select className="px-3 py-2 border border-gray-300 rounded-lg text-gray-900">
-            <option>All Churn Risks</option>
-            <option>Low</option>
-            <option>Medium</option>
-            <option>High</option>
-          </select>
-        </div>
-
-        {/* Customers Table */}
-        <Widget title="Customers">
-          <Table columns={columns} data={customers} loading={loading} />
-        </Widget>
-
-        {/* Insights */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Widget title="Total Customers">
-            <p className="text-4xl font-bold text-gray-900">248</p>
-            <p className="text-sm text-gray-600 mt-2">+12 this month</p>
-          </Widget>
-          <Widget title="Avg Order Value">
-            <p className="text-4xl font-bold text-gray-900">$3,245</p>
-            <p className="text-sm text-gray-600 mt-2">+5% vs last month</p>
-          </Widget>
-          <Widget title="High Risk Customers">
-            <p className="text-4xl font-bold text-red-600">18</p>
-            <p className="text-sm text-gray-600 mt-2">7.3% of customer base</p>
-          </Widget>
-        </div>
-      </div>
-    </DashboardLayout>
+      </Modal>
+    </div>
   )
 }

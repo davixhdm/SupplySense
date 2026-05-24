@@ -1,62 +1,67 @@
-import { apiFetch } from './api'
-import { AuthResponse, LicenseResponse, User } from './types'
+import api from './api'
 
 export const authService = {
-  // Registration & Login
-  register: (data: any) =>
-    apiFetch<AuthResponse>('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-  login: (email: string, password: string) =>
-    apiFetch<AuthResponse>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    }),
-  logout: () => apiFetch('/auth/logout', { method: 'POST' }),
+  login: async (email: string, password: string) => {
+    const { data } = await api.post('/client/auth/login', { email, password })
+    return data
+  },
 
-  // License & Device Management
-  activateLicense: (licenseKey: string) =>
-    apiFetch<LicenseResponse>('/auth/activate-license', {
-      method: 'POST',
-      body: JSON.stringify({ licenseKey }),
-    }),
-  verifyDevice: (otp: string) =>
-    apiFetch('/auth/verify-device', {
-      method: 'POST',
-      body: JSON.stringify({ otp }),
-    }),
-  sendDeviceOTP: () => apiFetch('/auth/send-device-otp', { method: 'POST' }),
+  register: async (payload: Record<string, any>) => {
+    const { data } = await api.post('/client/auth/register', payload)
+    return data
+  },
 
-  // Password Management
-  forgotPassword: (email: string) =>
-    apiFetch('/auth/forgot-password', {
-      method: 'POST',
-      body: JSON.stringify({ email }),
-    }),
-  resetPassword: (token: string, password: string) =>
-    apiFetch('/auth/reset-password', {
-      method: 'POST',
-      body: JSON.stringify({ token, password }),
-    }),
-  changePassword: (oldPassword: string, newPassword: string) =>
-    apiFetch('/auth/change-password', {
-      method: 'PUT',
-      body: JSON.stringify({ oldPassword, newPassword }),
-    }),
+  activateLicense: async (licenseKey: string, deviceId: string, deviceName?: string) => {
+    const { data } = await api.post('/client/auth/activate-license', {
+      licenseKey,
+      deviceId,
+      deviceName: deviceName || 'Web Browser',
+      deviceType: 'desktop'
+    })
+    return data
+  },
 
-  // Payment
-  submitManualPayment: (data: any) =>
-    apiFetch('/auth/manual-payment', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+  getProfile: async () => {
+    const { data } = await api.get('/client/auth/profile')
+    return data
+  },
 
-  // Profile
-  getProfile: () => apiFetch<User>('/auth/profile'),
-  updateProfile: (updates: Partial<User>) =>
-    apiFetch<User>('/auth/profile', {
-      method: 'PUT',
-      body: JSON.stringify(updates),
-    }),
+  updateProfile: async (profile: Record<string, any>) => {
+    const { data } = await api.put('/client/auth/profile', profile)
+    return data
+  },
+
+  changePassword: async (currentPassword: string, newPassword: string) => {
+    const { data } = await api.put('/client/auth/change-password', { currentPassword, newPassword })
+    return data
+  },
+
+  forgotPassword: async (email: string) => {
+    const { data } = await api.post('/client/auth/forgot-password', { email })
+    return data
+  },
+
+  resetPassword: async (token: string, newPassword: string) => {
+    const { data } = await api.post('/client/auth/reset-password', { token, newPassword })
+    return data
+  },
+
+  verifyDevice: async (deviceId: string, otp: string) => {
+    const { data } = await api.post('/client/auth/verify-device', { deviceId, otp })
+    return data
+  },
+
+  sendDeviceOTP: async (deviceId: string) => {
+    const { data } = await api.post('/client/auth/send-device-otp', { deviceId })
+    return data
+  },
+
+  submitManualPayment: async (payload: Record<string, any>) => {
+    const { data } = await api.post('/client/auth/manual-payment', payload)
+    return data
+  },
+
+  logout: async () => {
+    return api.post('/client/auth/logout')
+  }
 }

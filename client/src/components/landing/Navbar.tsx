@@ -1,88 +1,95 @@
-import { Link } from 'react-router-dom'
-import { Button } from '../common/Button'
-import { Menu, X } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { Menu, X, ChevronDown } from 'lucide-react'
+import api from '../../services/api'
 
-export function Navbar() {
-  const [isOpen, setIsOpen] = useState(false)
+export default function Navbar() {
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const [supportOpen, setSupportOpen] = useState(false)
+  const [systemName, setSystemName] = useState('SupplySense')
+  const supportRef = useRef<HTMLDivElement>(null)
+  const navigate = useNavigate()
+  const location = useLocation()
+
+  useEffect(() => {
+    api.get('/client/auth/public-settings').then(res => {
+      if (res.data?.systemName) setSystemName(res.data.systemName)
+    }).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (supportRef.current && !supportRef.current.contains(e.target as Node)) setSupportOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const scrollToTop = () => { setMobileOpen(false); setSupportOpen(false); navigate('/'); window.scrollTo({ top: 0, behavior: 'smooth' }) }
+  
+  const scrollTo = (id: string) => {
+    setMobileOpen(false); setSupportOpen(false)
+    if (location.pathname !== '/') {
+      navigate('/')
+      setTimeout(() => { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: 'smooth' }) }, 100)
+    } else {
+      const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: 'smooth' })
+    }
+  }
+
+  const goTo = (path: string) => { setMobileOpen(false); setSupportOpen(false); navigate(path); window.scrollTo({ top: 0, behavior: 'smooth' }) }
+
+  const handlePricing = () => {
+    if (location.pathname === '/') scrollTo('pricing')
+    else goTo('/pricing')
+  }
 
   return (
-    <nav className="bg-white shadow-sm sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* Logo */}
-          <Link to="/" className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-xl">S</span>
-            </div>
-            <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent">
-              SupplySense
-            </span>
-          </Link>
+    <nav className="sticky top-0 z-50 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
+      <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+        <button onClick={scrollToTop} className="text-xl font-bold text-primary-600 hover:text-primary-700 transition-colors">{systemName}</button>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-8">
-            <a href="#features" className="text-gray-600 hover:text-gray-900 font-medium transition">
-              Features
-            </a>
-            <a href="#pricing" className="text-gray-600 hover:text-gray-900 font-medium transition">
-              Pricing
-            </a>
-            <a href="#payment" className="text-gray-600 hover:text-gray-900 font-medium transition">
-              Payment
-            </a>
+        <div className="hidden md:flex items-center gap-8 text-sm font-medium">
+          <button onClick={() => scrollTo('features')} className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors">Features</button>
+          <button onClick={() => scrollTo('about')} className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors">About</button>
+          <button onClick={handlePricing} className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors">Pricing</button>
+          <div className="relative" ref={supportRef}>
+            <button onClick={() => setSupportOpen(!supportOpen)} className="flex items-center gap-1 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors">Support <ChevronDown size={14} /></button>
+            {supportOpen && (
+              <div className="absolute top-full right-0 mt-2 w-44 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-20">
+                <button onClick={() => goTo('/faq')} className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">FAQ</button>
+                <button onClick={() => goTo('/help')} className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">Help Center</button>
+                <button onClick={() => scrollTo('support')} className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">Contact</button>
+              </div>
+            )}
           </div>
-
-          {/* Desktop Buttons */}
-          <div className="hidden md:flex items-center gap-4">
-            <Link to="/login">
-              <Button variant="secondary" size="sm">
-                Login
-              </Button>
-            </Link>
-            <Link to="/register">
-              <Button size="sm">
-                Get Started
-              </Button>
-            </Link>
-          </div>
-
-          {/* Mobile Menu Button */}
-          <button
-            onClick={() => setIsOpen(!isOpen)}
-            className="md:hidden p-2 hover:bg-gray-100 rounded-lg"
-          >
-            {isOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
         </div>
 
-        {/* Mobile Navigation */}
-        {isOpen && (
-          <div className="md:hidden pb-4 space-y-3">
-            <a href="#features" className="block px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg">
-              Features
-            </a>
-            <a href="#pricing" className="block px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg">
-              Pricing
-            </a>
-            <a href="#payment" className="block px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg">
-              Payment
-            </a>
-            <div className="flex flex-col gap-2 px-4">
-              <Link to="/login" className="w-full">
-                <Button variant="secondary" size="sm" className="w-full">
-                  Login
-                </Button>
-              </Link>
-              <Link to="/register" className="w-full">
-                <Button size="sm" className="w-full">
-                  Get Started
-                </Button>
-              </Link>
-            </div>
-          </div>
-        )}
+        <div className="hidden md:flex items-center gap-3">
+          <Link to="/pricing" className="bg-primary-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors">Get Started</Link>
+          <Link to="/login" className="border border-primary-600 text-primary-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors">Launch</Link>
+        </div>
+
+        <button onClick={() => setMobileOpen(!mobileOpen)} className="md:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">{mobileOpen ? <X size={24} /> : <Menu size={24} />}</button>
       </div>
+
+      {mobileOpen && (
+        <div className="md:hidden border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-4 space-y-2">
+          <button onClick={() => scrollTo('features')} className="block w-full text-left text-sm font-medium text-gray-600 dark:text-gray-400 py-2">Features</button>
+          <button onClick={() => scrollTo('about')} className="block w-full text-left text-sm font-medium text-gray-600 dark:text-gray-400 py-2">About</button>
+          <button onClick={handlePricing} className="block w-full text-left text-sm font-medium text-gray-600 dark:text-gray-400 py-2">Pricing</button>
+          <div className="border-t border-gray-100 dark:border-gray-700 pt-2">
+            <p className="text-xs text-gray-400 uppercase px-2 py-1">Support</p>
+            <button onClick={() => goTo('/faq')} className="block w-full text-left text-sm font-medium text-gray-600 dark:text-gray-400 py-2">FAQ</button>
+            <button onClick={() => goTo('/help')} className="block w-full text-left text-sm font-medium text-gray-600 dark:text-gray-400 py-2">Help Center</button>
+            <button onClick={() => scrollTo('support')} className="block w-full text-left text-sm font-medium text-gray-600 dark:text-gray-400 py-2">Contact</button>
+          </div>
+          <div className="flex gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+            <Link to="/pricing" className="flex-1 bg-primary-600 text-white px-4 py-2 rounded-lg text-sm font-medium text-center">Get Started</Link>
+            <Link to="/login" className="flex-1 border border-primary-600 text-primary-600 px-4 py-2 rounded-lg text-sm font-medium text-center">Launch</Link>
+          </div>
+        </div>
+      )}
     </nav>
   )
 }

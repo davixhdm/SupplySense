@@ -1,40 +1,53 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 
 interface User {
-  id: string
+  _id: string
+  organizationId: string
+  fullName: string
   email: string
+  role: string
+  department: string
+  phone: string
+  isActive: boolean
+  isVerified: boolean
+}
+
+interface Organization {
   name: string
-  role: 'admin' | 'manager' | 'user'
+  plan: string
+  billingCycle: string
+  planEndDate: string | null
+  trialEndDate: string | null
+  licenseKey?: string
 }
 
-interface AuthStore {
-  isAuthenticated: boolean
-  user: User | null
+interface AuthState {
   token: string | null
-  setAuth: (user: User, token: string) => void
-  logout: () => void
-  setUser: (user: User) => void
+  user: User | null
+  organization: Organization | null
+  isHydrated: boolean
+  setAuth: (token: string, user: User, organization?: Organization) => void
+  clearAuth: () => void
+  setHydrated: () => void
 }
 
-export const useAuthStore = create<AuthStore>((set) => ({
-  isAuthenticated: !!localStorage.getItem('token'),
-  user: localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!) : null,
-  token: localStorage.getItem('token'),
-  
-  setAuth: (user: User, token: string) => {
-    localStorage.setItem('user', JSON.stringify(user))
-    localStorage.setItem('token', token)
-    set({ isAuthenticated: true, user, token })
-  },
-  
-  logout: () => {
-    localStorage.removeItem('user')
-    localStorage.removeItem('token')
-    set({ isAuthenticated: false, user: null, token: null })
-  },
-  
-  setUser: (user: User) => {
-    localStorage.setItem('user', JSON.stringify(user))
-    set({ user })
-  },
-}))
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set) => ({
+      token: null,
+      user: null,
+      organization: null,
+      isHydrated: false,
+      setAuth: (token, user, organization) => set({ token, user, organization: organization || null, isHydrated: true }),
+      clearAuth: () => set({ token: null, user: null, organization: null, isHydrated: true }),
+      setHydrated: () => set({ isHydrated: true })
+    }),
+    {
+      name: 'supplysense-client-auth',
+      onRehydrateStorage: () => (state) => {
+        state?.setHydrated()
+      }
+    }
+  )
+)

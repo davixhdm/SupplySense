@@ -1,220 +1,58 @@
-import { useState } from 'react'
-import { DashboardLayout } from '../../layouts/DashboardLayout'
-import { Widget } from '../../components/dashboard/Widget'
-import { Table } from '../../components/common/Table'
-import { Button } from '../../components/common/Button'
-import { AlertCircle, Bell, CheckCircle, RefreshCw } from 'lucide-react'
-import { alertService } from '../../services'
-import { useApiPaginated } from '../../hooks'
-
-interface Alert {
-  id: string
-  _id?: string
-  title: string
-  type?: 'error' | 'warning' | 'info' | 'success'
-  description: string
-  severity?: 'critical' | 'high' | 'medium' | 'low'
-  createdAt: string
-  resolved?: boolean
-  isRead?: boolean
-}
+import { useState, useEffect } from 'react'
+import { alertService } from '../../services/alertService'
+import Button from '../../components/common/Button'
+import { formatDate } from '../../utils/helpers'
+import { ALERT_SEVERITY_COLORS } from '../../utils/constants'
+import { Check, Eye, X } from 'lucide-react'
+import toast from 'react-hot-toast'
 
 export default function AlertSystemPage() {
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [alerts, setAlerts] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
-  // Fetch alerts using the hook
-  const {
-    data: alerts,
-    loading: alertsLoading,
-    error: alertsError,
-    page,
-    nextPage,
-    prevPage,
-    refetch,
-  } = useApiPaginated(alertService.getAlerts, 1, 20)
-
-  const handleMarkAsRead = async (alertId: string) => {
-    try {
-      setLoading(true)
-      await alertService.markAsRead(alertId)
-      refetch()
-    } catch (err) {
-      setError('Failed to mark alert as read')
-    } finally {
-      setLoading(false)
-    }
+  const fetchAlerts = async () => {
+    setLoading(true)
+    try { const res = await alertService.getAll({ limit: '50' }); setAlerts(res.alerts || []) }
+    catch (err) { toast.error('Failed') }
+    finally { setLoading(false) }
   }
 
-  const handleResolveAlert = async (alertId: string) => {
-    try {
-      setLoading(true)
-      await alertService.markAsActioned(alertId)
-      refetch()
-    } catch (err) {
-      setError('Failed to resolve alert')
-    } finally {
-      setLoading(false)
-    }
-  }
+  useEffect(() => { fetchAlerts() }, [])
 
-  const getSeverityColor = (severity: string) => {
-    const colors: Record<string, string> = {
-      critical: 'bg-red-100 text-red-800',
-      high: 'bg-orange-100 text-orange-800',
-      medium: 'bg-yellow-100 text-yellow-800',
-      low: 'bg-green-100 text-green-800',
-    }
-    return colors[severity] || 'bg-gray-100 text-gray-800'
-  }
-
-  const getTypeIcon = (type: string) => {
-    const icons: Record<string, React.ReactNode> = {
-      error: <AlertCircle className="w-5 h-5 text-red-600" />,
-      warning: <AlertCircle className="w-5 h-5 text-yellow-600" />,
-      info: <Bell className="w-5 h-5 text-blue-600" />,
-      success: <CheckCircle className="w-5 h-5 text-green-600" />,
-    }
-    return icons[type] || <Bell className="w-5 h-5 text-gray-600" />
-  }
-
-  const activeAlerts = alerts.filter((a) => !a.resolved)
-  const criticalAlerts = alerts.filter((a) => a.severity === 'critical' && !a.resolved)
-
-  const columns = [
-    {
-      key: 'title',
-      label: 'Alert',
-      render: (val: string, item: Alert) => (
-        <div className="flex items-start gap-2">
-          {getTypeIcon(item.type || 'info')}
-          <div>
-            <p className="font-medium text-gray-900">{val}</p>
-            <p className="text-sm text-gray-600">{item.description}</p>
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: 'severity',
-      label: 'Severity',
-      render: (val: string) => (
-        <span className={`px-2 py-1 rounded text-sm font-medium ${getSeverityColor(val || 'medium')}`}>
-          {val || 'medium'}
-        </span>
-      ),
-    },
-    { 
-      key: 'createdAt', 
-      label: 'Time', 
-      render: (val: string) => new Date(val).toLocaleString() 
-    },
-    {
-      key: 'resolved',
-      label: 'Action',
-      render: (val: boolean, item: Alert) =>
-        !val ? (
-          <Button
-            size="sm"
-            onClick={() => handleResolveAlert(item.id || item._id)}
-          >
-            Resolve
-          </Button>
-        ) : (
-          <span className="text-green-600 font-medium">Resolved</span>
-        ),
-    },
-  ]
+  const handleMarkRead = async (id: string) => { await alertService.markAsRead(id); fetchAlerts() }
+  const handleMarkAll = async () => { await alertService.markAllRead(); fetchAlerts(); toast.success('All marked as read') }
+  const handleDismiss = async (id: string) => { await alertService.dismissAlert(id); fetchAlerts() }
+  const handleAction = async (id: string, action: string) => { await alertService.actionAlert(id, action); fetchAlerts(); toast.success('Action recorded') }
 
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
-        {/* Error Display */}
-        {(error || alertsError) && (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 text-red-600" />
-              <p className="text-red-800">{error || alertsError}</p>
-            </div>
-            <button
-              onClick={refetch}
-              className="text-red-600 hover:text-red-800 flex items-center gap-1"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Retry
-            </button>
-          </div>
-        )}
-
-        {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Alert System</h1>
-          <p className="text-gray-600 mt-1">Manage your supply chain alerts and notifications</p>
-        </div>
-
-        {/* Critical Alerts Summary */}
-        {criticalAlerts.length > 0 && (
-          <div className="bg-red-50 border-l-4 border-red-600 rounded-lg p-4">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="w-6 h-6 text-red-600 mt-0.5 flex-shrink-0" />
-              <div>
-                <h3 className="font-bold text-red-900 text-lg">Critical Alerts</h3>
-                <p className="text-red-700 text-sm mt-1">
-                  You have {criticalAlerts.length} critical alert(s) requiring immediate attention.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Widget title="Total Alerts">
-            <p className="text-4xl font-bold text-gray-900">{alerts.length}</p>
-            <p className="text-sm text-gray-600 mt-2">All time</p>
-          </Widget>
-          <Widget title="Active Alerts">
-            <p className="text-4xl font-bold text-orange-600">{activeAlerts.length}</p>
-            <p className="text-sm text-gray-600 mt-2">Unresolved</p>
-          </Widget>
-          <Widget title="Critical">
-            <p className="text-4xl font-bold text-red-600">{criticalAlerts.length}</p>
-            <p className="text-sm text-gray-600 mt-2">Need action</p>
-          </Widget>
-        </div>
-
-        {/* Recent Alerts */}
-        <Widget title="Recent Alerts">
-          {alertsLoading ? (
-            <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            </div>
-          ) : activeAlerts.length > 0 ? (
-            <>
-              <Table columns={columns} data={activeAlerts} />
-              <div className="mt-4 flex justify-between items-center">
-                <span className="text-sm text-gray-600">
-                  Page {page} | Alerts: {activeAlerts.length}
-                </span>
-                <div className="flex gap-2">
-                  <Button
-                    variant="secondary"
-                    onClick={prevPage}
-                    disabled={page === 1}
-                  >
-                    Previous
-                  </Button>
-                  <Button variant="secondary" onClick={nextPage}>
-                    Next
-                  </Button>
-                </div>
-              </div>
-            </>
-          ) : (
-            <p className="text-gray-500 py-8 text-center">No active alerts</p>
-          )}
-        </Widget>
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Alerts</h1>
+        <Button variant="secondary" onClick={handleMarkAll}>Mark All Read</Button>
       </div>
-    </DashboardLayout>
+      {loading ? (
+        <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" /></div>
+      ) : alerts.length === 0 ? (
+        <div className="text-center py-12 text-gray-500 bg-white dark:bg-gray-800 rounded-xl border">No alerts</div>
+      ) : (
+        <div className="space-y-3">
+          {alerts.map((alert) => (
+            <div key={alert._id} className={`bg-white dark:bg-gray-800 rounded-xl border p-4 flex items-start gap-4 ${!alert.isRead ? 'border-primary-300 dark:border-primary-700' : 'border-gray-200 dark:border-gray-700'}`}>
+              <span className={`px-2 py-0.5 rounded text-xs font-medium mt-0.5 ${ALERT_SEVERITY_COLORS[alert.severity] || ''}`}>{alert.severity}</span>
+              <div className="flex-1">
+                <p className="font-medium text-sm text-gray-900 dark:text-gray-100">{alert.title}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{alert.message}</p>
+                <p className="text-xs text-gray-400 mt-2">{formatDate(alert.createdAt)}</p>
+              </div>
+              <div className="flex items-center gap-1">
+                {!alert.isRead && <button onClick={() => handleMarkRead(alert._id)} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700" title="Mark read"><Eye size={14} /></button>}
+                {!alert.isActioned && <button onClick={() => handleAction(alert._id, 'Resolved')} className="p-1 rounded hover:bg-green-50 dark:hover:bg-green-900/20 text-green-600" title="Resolve"><Check size={14} /></button>}
+                <button onClick={() => handleDismiss(alert._id)} className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500" title="Dismiss"><X size={14} /></button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }

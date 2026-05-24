@@ -1,310 +1,137 @@
-import { useState } from 'react'
-import { DashboardLayout } from '../../layouts/DashboardLayout'
-import { Widget } from '../../components/dashboard/Widget'
-import { Input } from '../../components/common/Input'
-import { Button } from '../../components/common/Button'
-import { Loader } from '../../components/common/Loader'
-import { Send, MessageCircle, Save } from 'lucide-react'
-import { aiInsightsService } from '../../services'
-import { useApi } from '../../hooks'
-
-interface Message {
-  id: string
-  role: 'user' | 'assistant'
-  content: string
-  timestamp: Date
-}
+import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
+import { aiInsightsService } from '../../services/aiInsightsService'
+import Button from '../../components/common/Button'
+import Input from '../../components/common/Input'
+import { Search, TrendingUp, AlertTriangle, Lightbulb, Lock, Sparkles, ChevronRight, BarChart3 } from 'lucide-react'
+import toast from 'react-hot-toast'
 
 export default function AIInsightsPage() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      role: 'assistant',
-      content: 'Hello! I\'m your SupplySense AI Assistant. I can help you analyze your supply chain data, predict trends, and optimize your operations. What would you like to know?',
-      timestamp: new Date(),
-    },
-  ])
-  const [inputValue, setInputValue] = useState('')
+  const [query, setQuery] = useState('')
+  const [category, setCategory] = useState('')
+  const [result, setResult] = useState<any>(null)
   const [loading, setLoading] = useState(false)
+  const [generalLoading, setGeneralLoading] = useState(true)
+  const [generalData, setGeneralData] = useState<any>(null)
+  const [blocked, setBlocked] = useState(false)
 
-  // Fetch insights using the hook
-  const {
-    data: insights,
-    loading: insightsLoading,
-    error: insightsError,
-    refetch: refetchInsights,
-  } = useApi(
-    () => aiInsightsService.getInsights(),
-    []
-  )
+  useEffect(() => {
+    aiInsightsService.getGeneral()
+      .then(setGeneralData)
+      .catch((err) => { if (err?.response?.status === 403) setBlocked(true) })
+      .finally(() => setGeneralLoading(false))
+  }, [])
 
-  const handleSendMessage = async () => {
-    if (!inputValue.trim()) return
-
-    // Add user message
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: inputValue,
-      timestamp: new Date(),
-    }
-    setMessages((prev) => [...prev, userMessage])
-    const query = inputValue
-    setInputValue('')
+  const handleSearch = async () => {
+    if (!query && !category) { toast.error('Enter a query or select category'); return }
     setLoading(true)
+    try { const res = await aiInsightsService.search(query, category); setResult(res) }
+    catch (err) { toast.error('Search failed') }
+    finally { setLoading(false) }
+  }
 
-    try {
-      // Call AI service with the user's query
-      const response = await aiInsightsService.getPrediction({
-        query: query,
-        context: 'supply_chain_analysis',
-      })
+  const handleQuickSearch = async (q: string) => {
+    setQuery(''); setCategory(q)
+    setLoading(true)
+    try { const res = await aiInsightsService.search('', q); setResult(res) }
+    catch (err) { toast.error('Search failed') }
+    finally { setLoading(false) }
+  }
 
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: response?.prediction || 'I analyzed your query but couldn\'t generate a response. Please try again.',
-        timestamp: new Date(),
-      }
-      setMessages((prev) => [...prev, assistantMessage])
-    } catch (error) {
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: 'Sorry, I encountered an error processing your request. Please try again.',
-        timestamp: new Date(),
-      }
-      setMessages((prev) => [...prev, assistantMessage])
-      console.error('Failed to get AI response:', error)
-    } finally {
-      setLoading(false)
-    }
+  const suggestedQueries = [
+    { label: 'Inventory Health', query: 'inventory', icon: TrendingUp },
+    { label: 'Supplier Reliability', query: 'suppliers', icon: AlertTriangle },
+    { label: 'Customer Churn', query: 'customers', icon: Lightbulb },
+    { label: 'Revenue Analysis', query: 'revenue', icon: BarChart3 },
+    { label: 'Order Status', query: 'orders', icon: Sparkles },
+    { label: 'Employee Performance', query: 'employees', icon: TrendingUp },
+  ]
+
+  if (blocked) {
+    return (
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">AI Insights</h1>
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-12 text-center">
+          <Lock size={48} className="mx-auto text-gray-300 dark:text-gray-600 mb-4" />
+          <p className="text-gray-500 dark:text-gray-400 font-medium text-lg">Feature Locked</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Upgrade to Standard or Pro+ to access AI-powered insights.</p>
+          <Link to="/pricing"><Button variant="primary" size="sm" className="mt-4">Upgrade Plan</Button></Link>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-gray-900">AI Insights</h1>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Chat Interface */}
-          <div className="lg:col-span-2">
-            <Widget title="AI Assistant" className="h-full">
-              <div className="flex flex-col h-96">
-                {/* Messages */}
-                <div className="flex-1 overflow-y-auto space-y-4 mb-4 p-4 bg-gray-50 rounded-lg">
-                  {messages.map((msg) => (
-                    <div
-                      key={msg.id}
-                      className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                    >
-                      <div
-                        className={`max-w-xs px-4 py-2 rounded-lg ${
-                          msg.role === 'user'
-                            ? 'bg-blue-600 text-white rounded-br-none'
-                            : 'bg-gray-200 text-gray-900 rounded-bl-none'
-                        }`}
-                      >
-                        <p className="text-sm">{msg.content}</p>
-                        <span className="text-xs opacity-70 mt-1 block">
-                          {msg.timestamp.toLocaleTimeString()}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                  {loading && (
-                    <div className="flex justify-start">
-                      <div className="bg-gray-200 text-gray-900 px-4 py-2 rounded-lg">
-                        <Loader />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Input */}
-                <div className="flex gap-2">
-                  <Input
-                    type="text"
-                    placeholder="Ask me anything about your supply chain..."
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter' && !loading) {
-                        handleSendMessage()
-                      }
-                    }}
-                  />
-                  <Button
-                    onClick={handleSendMessage}
-                    disabled={loading || !inputValue.trim()}
-                    className="flex items-center gap-2"
-                  >
-                    <Send className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            </Widget>
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-4">
-            {/* Insights */}
-            <Widget title="Recent Insights">
-              {insightsLoading ? (
-                <div className="flex justify-center py-4">
-                  <Loader />
-                </div>
-              ) : insightsError ? (
-                <p className="text-sm text-red-600">Error loading insights</p>
-              ) : insights && insights.length > 0 ? (
-                <div className="space-y-3 max-h-96 overflow-y-auto">
-                  {insights.map((insight: any, idx: number) => (
-                    <div
-                      key={idx}
-                      className="p-3 bg-blue-50 border border-blue-200 rounded-lg cursor-pointer hover:bg-blue-100 transition"
-                    >
-                      <h4 className="font-semibold text-sm text-gray-900">
-                        {insight.title || `Insight ${idx + 1}`}
-                      </h4>
-                      <p className="text-xs text-gray-600 mt-1">
-                        {insight.description || insight.content?.substring(0, 40) + '...'}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-gray-500 text-center py-4">No insights available</p>
-              )}
-            </Widget>
-          </div>
-        </div>
+    <div>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">AI Insights</h1>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
+        {suggestedQueries.map((sq, i) => (
+          <button key={i} onClick={() => handleQuickSearch(sq.query)} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 flex items-center gap-3 hover:border-primary-500 hover:shadow-md transition-all text-left">
+            <div className="p-2 bg-primary-50 dark:bg-primary-900/20 rounded-lg"><sq.icon size={20} className="text-primary-600" /></div>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{sq.label}</span>
+            <ChevronRight size={16} className="ml-auto text-gray-400" />
+          </button>
+        ))}
       </div>
-    </DashboardLayout>
-  )
-
-  return (
-    <DashboardLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-gray-900">AI Insights</h1>
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 mb-6">
+        <div className="flex gap-2 mb-4">
+          <Input placeholder="Ask anything..." value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSearch()} />
+          <select value={category} onChange={(e) => { setCategory(e.target.value); setQuery('') }} className="px-3 py-2 border rounded-lg text-sm dark:bg-gray-800">
+            <option value="">All</option>
+            <option value="inventory">Inventory</option>
+            <option value="suppliers">Suppliers</option>
+            <option value="customers">Customers</option>
+            <option value="orders">Orders</option>
+            <option value="transactions">Transactions</option>
+            <option value="employees">Employees</option>
+          </select>
+          <Button onClick={handleSearch} loading={loading}><Search size={16} /></Button>
         </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Chat Interface */}
-          <div className="lg:col-span-2">
-            <Widget title="AI Assistant" className="h-full">
-              <div className="flex flex-col h-96">
-                {/* Messages */}
-                <div className="flex-1 overflow-y-auto space-y-4 mb-4 p-4 bg-gray-50 rounded-lg">
-                  {messages.map((msg) => (
-                    <div
-                      key={msg.id}
-                      className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                    >
-                      <div
-                        className={`max-w-xs px-4 py-2 rounded-lg ${
-                          msg.role === 'user'
-                            ? 'bg-blue-600 text-white rounded-br-none'
-                            : 'bg-gray-200 text-gray-900 rounded-bl-none'
-                        }`}
-                      >
-                        <p className="text-sm">{msg.content}</p>
-                        <span className="text-xs opacity-70 mt-1 block">
-                          {msg.timestamp.toLocaleTimeString()}
-                        </span>
-                      </div>
+        {result && (
+          <div className="space-y-6">
+            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+              <p className="text-sm font-medium text-blue-700 dark:text-blue-400 mb-1">💡 AI Analysis</p>
+              <p className="text-sm text-blue-800 dark:text-blue-300">{result.insights}</p>
+            </div>
+            {result.recommendations?.length > 0 && (
+              <div>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">📋 Recommendations</p>
+                <div className="space-y-2">
+                  {result.recommendations.map((rec: any, i: number) => (
+                    <div key={i} className={`p-3 rounded-lg border flex items-start gap-3 ${rec.priority === 'HIGH' ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' : rec.priority === 'MEDIUM' ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800' : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'}`}>
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded ${rec.priority === 'HIGH' ? 'bg-red-100 text-red-700' : rec.priority === 'MEDIUM' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>{rec.priority}</span>
+                      <p className="text-sm">{rec.description}</p>
                     </div>
                   ))}
-                  {loading && (
-                    <div className="flex justify-start">
-                      <div className="bg-gray-200 text-gray-900 px-4 py-2 rounded-lg">
-                        <Loader />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Input */}
-                <div className="flex gap-2">
-                  <Input
-                    type="text"
-                    placeholder="Ask me anything about your supply chain..."
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter' && !loading) {
-                        handleSendMessage()
-                      }
-                    }}
-                  />
-                  <Button
-                    onClick={handleSendMessage}
-                    disabled={loading || !inputValue.trim()}
-                    className="flex items-center gap-2"
-                  >
-                    <Send className="w-4 h-4" />
-                  </Button>
                 </div>
               </div>
-            </Widget>
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-4">
-            {/* Actions */}
-            <Widget title="Actions">
-              <Button onClick={handleSaveInsight} className="w-full flex items-center justify-center gap-2">
-                <Save className="w-4 h-4" />
-                Save Insight
-              </Button>
-            </Widget>
-
-            {/* Saved Insights */}
-            <Widget title="Saved Insights">
-              <div className="space-y-3 max-h-96 overflow-y-auto">
-                {savedInsights.length === 0 ? (
-                  <p className="text-sm text-gray-500 text-center py-4">No saved insights yet</p>
-                ) : (
-                  savedInsights.map((insight) => (
-                    <div
-                      key={insight.id}
-                      className="p-3 bg-blue-50 border border-blue-200 rounded-lg cursor-pointer hover:bg-blue-100 transition"
-                    >
-                      <h4 className="font-semibold text-sm text-gray-900">{insight.title}</h4>
-                      <p className="text-xs text-gray-600 mt-1">{insight.query.substring(0, 40)}...</p>
-                      <p className="text-xs text-gray-500 mt-2">
-                        {insight.savedAt.toLocaleDateString()}
-                      </p>
-                    </div>
-                  ))
-                )}
+            )}
+            {result.charts && Object.keys(result.charts).length > 0 && (
+              <div>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">📊 Data</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {Object.entries(result.charts).map(([key, value]: [string, any]) => {
+                    if (typeof value === 'number') {
+                      return (
+                        <div key={key} className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 text-center">
+                          <p className="text-xs text-gray-500 capitalize">{key.replace(/([A-Z])/g, ' $1')}</p>
+                          <p className="text-lg font-bold text-gray-900 dark:text-gray-100">{typeof value === 'number' && value % 1 !== 0 ? value.toFixed(1) : value}</p>
+                        </div>
+                      )
+                    }
+                    return null
+                  })}
+                </div>
               </div>
-            </Widget>
-
-            {/* Quick Questions */}
-            <Widget title="Quick Questions">
-              <div className="space-y-2">
-                <button className="w-full text-left px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition">
-                  <MessageCircle className="w-3 h-3 inline mr-2" />
-                  Predict next month demand
-                </button>
-                <button className="w-full text-left px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition">
-                  <MessageCircle className="w-3 h-3 inline mr-2" />
-                  Analyze supplier risks
-                </button>
-                <button className="w-full text-left px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition">
-                  <MessageCircle className="w-3 h-3 inline mr-2" />
-                  Optimize inventory
-                </button>
-              </div>
-            </Widget>
+            )}
           </div>
-        </div>
+        )}
       </div>
-    </DashboardLayout>
+      {!result && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+          <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">Select a category or type a question to get AI-powered insights.</p>
+        </div>
+      )}
+    </div>
   )
 }

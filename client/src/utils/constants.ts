@@ -1,132 +1,55 @@
-// Application constants
-export const APP_NAME = 'SupplySense'
-export const APP_VERSION = '1.0.0'
+export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
-// API configuration
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
-export const API_TIMEOUT = 30000 // 30 seconds
+export const PLAN_LABELS: Record<string, string> = {
+  trial: 'Free Trial',
+  standard: 'Standard',
+  proplus: 'Pro+'
+}
 
-// Pagination defaults
-export const DEFAULT_PAGE = 1
-export const DEFAULT_LIMIT = 20
-export const DEFAULT_ALERT_LIMIT = 50
+export const BILLING_LABELS: Record<string, string> = {
+  monthly: 'Monthly',
+  yearly: 'Yearly',
+  permanent: 'Permanent',
+  trial: 'Trial'
+}
 
-// User roles
-export const USER_ROLES = {
-  ADMIN: 'admin',
-  MANAGER: 'manager',
-  USER: 'user',
-} as const
+export const PAYMENT_METHODS: Record<string, string> = {
+  stripe: 'Stripe',
+  mpesa_stk: 'M-Pesa STK Push',
+  mpesa_send: 'M-Pesa Send Money',
+  mpesa_paybill: 'M-Pesa Paybill',
+  mpesa_till: 'M-Pesa Till',
+  paypal: 'PayPal'
+}
 
-// Order statuses
-export const ORDER_STATUS = {
-  PENDING: 'pending',
-  CONFIRMED: 'confirmed',
-  SHIPPED: 'shipped',
-  DELIVERED: 'delivered',
-} as const
+export const CURRENCIES = ['KSh', 'USD', 'EUR', 'GBP'] as const
 
-export const ORDER_STATUS_COLORS = {
-  pending: 'bg-yellow-100 text-yellow-800',
-  confirmed: 'bg-blue-100 text-blue-800',
-  shipped: 'bg-purple-100 text-purple-800',
-  delivered: 'bg-green-100 text-green-800',
-} as const
+export const ORDER_STATUS_LABELS: Record<string, string> = {
+  placed: 'Placed',
+  confirmed: 'Confirmed',
+  shipped: 'Shipped',
+  in_transit: 'In Transit',
+  delivered: 'Delivered',
+  cancelled: 'Cancelled',
+  returned: 'Returned'
+}
 
-// Risk prediction levels
-export const RISK_LEVELS = {
-  LOW: 'low',
-  MEDIUM: 'medium',
-  HIGH: 'high',
-} as const
+export const TRANSACTION_TYPES: Record<string, string> = {
+  sale: 'Sale',
+  purchase: 'Purchase',
+  return: 'Return',
+  refund: 'Refund',
+  expense: 'Expense',
+  adjustment: 'Adjustment',
+  transfer: 'Transfer'
+}
 
-export const RISK_LEVEL_COLORS = {
-  low: 'bg-green-100 text-green-800',
-  medium: 'bg-yellow-100 text-yellow-800',
-  high: 'bg-red-100 text-red-800',
-} as const
+export const ALERT_SEVERITY_COLORS: Record<string, string> = {
+  info: 'bg-blue-100 text-blue-800',
+  warning: 'bg-yellow-100 text-yellow-800',
+  critical: 'bg-red-100 text-red-800'
+}
 
-// Alert types
-export const ALERT_TYPES = {
-  WARNING: 'warning',
-  ERROR: 'error',
-  INFO: 'info',
-  SUCCESS: 'success',
-} as const
-
-export const ALERT_TYPE_COLORS = {
-  warning: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-  error: 'bg-red-100 text-red-800 border-red-300',
-  info: 'bg-blue-100 text-blue-800 border-blue-300',
-  success: 'bg-green-100 text-green-800 border-green-300',
-} as const
-
-// Transaction types
-export const TRANSACTION_TYPES = {
-  INCOME: 'income',
-  EXPENSE: 'expense',
-} as const
-
-// Button sizes
-export const BUTTON_SIZES = {
-  SM: 'sm',
-  MD: 'md',
-  LG: 'lg',
-} as const
-
-// Button variants
-export const BUTTON_VARIANTS = {
-  PRIMARY: 'primary',
-  SECONDARY: 'secondary',
-  DANGER: 'danger',
-} as const
-
-// Badge variants
-export const BADGE_VARIANTS = {
-  PRIMARY: 'primary',
-  SECONDARY: 'secondary',
-  SUCCESS: 'success',
-  WARNING: 'warning',
-  DANGER: 'danger',
-  INFO: 'info',
-} as const
-
-// Local storage keys
-export const STORAGE_KEYS = {
-  TOKEN: 'token',
-  USER: 'user',
-  PREFERENCES: 'preferences',
-  THEME: 'theme',
-} as const
-
-// Date/Time formats
-export const DATE_FORMATS = {
-  SHORT: 'MM/dd/yyyy',
-  LONG: 'MMMM d, yyyy',
-  FULL: 'EEEE, MMMM d, yyyy',
-  TIME: 'hh:mm a',
-  DATETIME: 'MM/dd/yyyy hh:mm a',
-} as const
-
-// Route paths
-export const ROUTES = {
-  HOME: '/',
-  LOGIN: '/login',
-  REGISTER: '/register',
-  LICENSE: '/license',
-  DASHBOARD: '/dashboard',
-  ORDERS: '/dashboard/orders',
-  INVENTORY: '/dashboard/inventory',
-  CUSTOMERS: '/dashboard/customers',
-  SUPPLIERS: '/dashboard/suppliers',
-  EMPLOYEES: '/dashboard/employees',
-  TRANSACTIONS: '/dashboard/transactions',
-  AI_INSIGHTS: '/dashboard/ai-insights',
-  ALERTS: '/dashboard/alerts',
-  SETTINGS: '/dashboard/settings',
-  SETTINGS_COMPANY: '/dashboard/settings/company',
-  SETTINGS_PREFERENCES: '/dashboard/settings/preferences',
-  SETTINGS_USERS: '/dashboard/settings/users',
-  SETTINGS_DEVICES: '/dashboard/settings/devices',
-  SETTINGS_BACKUPS: '/dashboard/settings/backups',
-} as const
+export const DEPARTMENT_OPTIONS = [
+  'finance', 'hr', 'procurement', 'sales', 'warehouse', 'management', 'other'
+] as const

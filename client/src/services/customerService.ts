@@ -1,23 +1,33 @@
-import { apiFetch } from './api'
-import { Customer, PaginatedResponse } from './types'
+import api from './api'
 
 export const customerService = {
-  getCustomers: (page = 1, limit = 20) =>
-    apiFetch<PaginatedResponse<Customer>>(
-      `/customers?page=${page}&limit=${limit}`
-    ),
-  getCustomerStats: () => apiFetch<any>('/customers/stats'),
-  getCustomer: (id: string) => apiFetch<Customer>(`/customers/${id}`),
-  createCustomer: (data: Partial<Customer>) =>
-    apiFetch<Customer>('/customers', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-  updateCustomer: (id: string, data: Partial<Customer>) =>
-    apiFetch<Customer>(`/customers/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
-  deleteCustomer: (id: string) =>
-    apiFetch(`/customers/${id}`, { method: 'DELETE' }),
+  getAll: async (params?: Record<string, any>) => {
+    const { data } = await api.get('/client/customers', { params })
+    return data
+  },
+
+  getById: async (id: string) => {
+    const { data } = await api.get(`/client/customers/${id}`)
+    return data
+  },
+
+  create: async (payload: Record<string, any>) => {
+    const { data } = await api.post('/client/customers', payload)
+    return data
+  },
+
+  update: async (id: string, payload: Record<string, any>) => {
+    const { data } = await api.put(`/client/customers/${id}`, payload)
+    return data
+  },
+
+  delete: async (id: string) => {
+    const { data } = await api.delete(`/client/customers/${id}`)
+    return data
+  },
+
+  getStats: async () => {
+    const { data } = await api.get('/client/customers/stats')
+    return data
+  }
 }

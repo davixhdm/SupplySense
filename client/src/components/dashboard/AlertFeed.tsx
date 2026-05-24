@@ -1,68 +1,49 @@
-import { AlertCircle, CheckCircle, Info } from 'lucide-react'
+import { Bell, AlertTriangle, AlertCircle, Info } from 'lucide-react'
+import { ALERT_SEVERITY_COLORS } from '../../utils/constants'
+import { formatDate } from '../../utils/helpers'
 
 interface Alert {
-  id: string
-  type: 'error' | 'warning' | 'info' | 'success'
+  _id: string
   title: string
   message: string
-  timestamp: Date
+  severity: string
+  createdAt: string
+  isRead: boolean
 }
 
 interface AlertFeedProps {
-  alerts?: Alert[]
-  loading?: boolean
+  alerts: Alert[]
 }
 
-export function AlertFeed({ alerts = [], loading = false }: AlertFeedProps) {
-  const getIcon = (type: Alert['type']) => {
-    switch (type) {
-      case 'error':
-        return <AlertCircle size={20} className="text-red-600" />
-      case 'warning':
-        return <AlertCircle size={20} className="text-yellow-600" />
-      case 'success':
-        return <CheckCircle size={20} className="text-green-600" />
-      default:
-        return <Info size={20} className="text-blue-600" />
-    }
-  }
-
-  const getColor = (type: Alert['type']) => {
-    switch (type) {
-      case 'error':
-        return 'bg-red-50 border-red-200'
-      case 'warning':
-        return 'bg-yellow-50 border-yellow-200'
-      case 'success':
-        return 'bg-green-50 border-green-200'
-      default:
-        return 'bg-blue-50 border-blue-200'
-    }
+export default function AlertFeed({ alerts }: AlertFeedProps) {
+  const severityIcons: Record<string, any> = {
+    info: Info,
+    warning: AlertTriangle,
+    critical: AlertCircle
   }
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <h3 className="text-lg font-semibold mb-4">Recent Alerts</h3>
-      {loading ? (
-        <div className="text-center py-8 text-gray-500">Loading alerts...</div>
-      ) : alerts.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">No alerts at the moment</div>
+    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+      <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase mb-4">Recent Alerts</h3>
+      {alerts.length === 0 ? (
+        <p className="text-sm text-gray-400">No alerts</p>
       ) : (
         <div className="space-y-3">
-          {alerts.slice(0, 5).map((alert) => (
-            <div key={alert.id} className={`border rounded-lg p-4 ${getColor(alert.type)}`}>
-              <div className="flex items-start gap-3">
-                {getIcon(alert.type)}
-                <div className="flex-1">
-                  <h4 className="font-semibold text-gray-900">{alert.title}</h4>
-                  <p className="text-sm text-gray-600 mt-1">{alert.message}</p>
-                  <p className="text-xs text-gray-500 mt-2">
-                    {alert.timestamp.toLocaleString()}
-                  </p>
+          {alerts.slice(0, 5).map((alert) => {
+            const Icon = severityIcons[alert.severity] || Info
+            return (
+              <div key={alert._id} className="flex items-start gap-3">
+                <div className={`p-1 rounded ${ALERT_SEVERITY_COLORS[alert.severity]?.split(' ')[0]}`}>
+                  <Icon size={14} />
                 </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{alert.title}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{formatDate(alert.createdAt)}</p>
+                </div>
+                {!alert.isRead && <div className="w-2 h-2 rounded-full bg-primary-500 mt-1.5 flex-shrink-0" />}
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

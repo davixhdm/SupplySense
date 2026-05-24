@@ -1,21 +1,33 @@
-import { apiFetch } from './api'
-import { Order, PaginatedResponse } from './types'
+import api from './api'
 
 export const orderService = {
-  getOrders: (page = 1, limit = 20) =>
-    apiFetch<PaginatedResponse<Order>>(`/orders?page=${page}&limit=${limit}`),
-  getOrderStats: () => apiFetch<any>('/orders/stats'),
-  getOrder: (id: string) => apiFetch<Order>(`/orders/${id}`),
-  createOrder: (data: Partial<Order>) =>
-    apiFetch<Order>('/orders', { method: 'POST', body: JSON.stringify(data) }),
-  updateOrder: (id: string, data: Partial<Order>) =>
-    apiFetch<Order>(`/orders/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
-  updateOrderStatus: (id: string, status: string) =>
-    apiFetch<Order>(`/orders/${id}/status`, {
-      method: 'PUT',
-      body: JSON.stringify({ status }),
-    }),
+  getAll: async (params?: Record<string, any>) => {
+    const { data } = await api.get('/client/orders', { params })
+    return data
+  },
+
+  getById: async (id: string) => {
+    const { data } = await api.get(`/client/orders/${id}`)
+    return data
+  },
+
+  create: async (payload: Record<string, any>) => {
+    const { data } = await api.post('/client/orders', payload)
+    return data
+  },
+
+  update: async (id: string, payload: Record<string, any>) => {
+    const { data } = await api.put(`/client/orders/${id}`, payload)
+    return data
+  },
+
+  updateStatus: async (id: string, status: string, notes?: string) => {
+    const { data } = await api.put(`/client/orders/${id}/status`, { status, notes })
+    return data
+  },
+
+  getStats: async () => {
+    const { data } = await api.get('/client/orders/stats')
+    return data
+  }
 }

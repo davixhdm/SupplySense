@@ -1,10 +1,25 @@
 import { Router } from 'express';
-import { clientLogin, clientLogout, registerOrganization, activateLicense, verifyDevice, sendDeviceOTP, forgotPassword, resetPassword, submitManualPayment, getProfile, updateProfile, changeClientPassword } from '../../controllers/client/clientAuthController.js';
+import {
+  clientLogin,
+  clientLogout,
+  registerOrganization,
+  activateLicense,
+  verifyDevice,
+  sendDeviceOTP,
+  forgotPassword,
+  resetPassword,
+  submitManualPayment,
+  getProfile,
+  updateProfile,
+  changeClientPassword,
+  getPublicSettings
+} from '../../controllers/client/clientAuthController.js';
 import clientAuthMiddleware from '../../middleware/client/clientAuthMiddleware.js';
 import deviceCheckMiddleware from '../../middleware/client/deviceCheckMiddleware.js';
 
 const router = Router();
 
+router.get('/public-settings', getPublicSettings);
 router.post('/login', clientLogin);
 router.post('/logout', clientAuthMiddleware, clientLogout);
 router.post('/register', registerOrganization);

@@ -1,173 +1,104 @@
-import { useState } from 'react'
-import { DashboardLayout } from '../../layouts/DashboardLayout'
-import { Widget } from '../../components/dashboard/Widget'
-import { Table } from '../../components/common/Table'
-import { Input } from '../../components/common/Input'
-import { Button } from '../../components/common/Button'
-import { Mail, Phone, AlertCircle, RefreshCw } from 'lucide-react'
-import { employeeService } from '../../services'
-import { useApiPaginated } from '../../hooks'
-
-interface Employee {
-  id: string
-  _id?: string
-  name: string
-  email: string
-  department: string
-  position: string
-  hireDate?: string
-  joinDate?: string
-  status?: 'active' | 'on-leave' | 'inactive'
-  phone?: string
-}
+import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
+import { employeeService } from '../../services/employeeService'
+import Table from '../../components/common/Table'
+import Button from '../../components/common/Button'
+import Modal from '../../components/common/Modal'
+import Input from '../../components/common/Input'
+import { DEPARTMENT_OPTIONS } from '../../utils/constants'
+import { Plus, Lock } from 'lucide-react'
+import toast from 'react-hot-toast'
 
 export default function EmployeesPage() {
-  const [search, setSearch] = useState('')
+  const [data, setData] = useState<any>({ employees: [], blocked: false })
+  const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(1)
+  const [showCreate, setShowCreate] = useState(false)
+  const [form, setForm] = useState({ fullName: '', email: '', phone: '', department: 'other', position: '', employeeId: '' })
+  const [creating, setCreating] = useState(false)
 
-  // Fetch employees using the hook
-  const {
-    data: employees,
-    loading,
-    error,
-    page,
-    nextPage,
-    prevPage,
-    refetch,
-  } = useApiPaginated(employeeService.getEmployees, 1, 20)
-
-  const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      active: 'bg-green-100 text-green-800',
-      'on-leave': 'bg-yellow-100 text-yellow-800',
-      inactive: 'bg-gray-100 text-gray-800',
+  const fetchData = async () => {
+    setLoading(true)
+    try {
+      const res = await employeeService.getAll({ page })
+      setData({ employees: res.employees || [], blocked: false, pagination: res.pagination })
+    } catch (err: any) {
+      if (err?.response?.status === 403) {
+        setData({ employees: [], blocked: true })
+      } else {
+        toast.error('Failed to load')
+      }
+    } finally {
+      setLoading(false)
     }
-    return colors[status] || 'bg-blue-100 text-blue-800'
+  }
+
+  useEffect(() => { fetchData() }, [page])
+
+  const handleCreate = async () => {
+    if (!form.fullName || !form.email) { toast.error('Name and email required'); return }
+    setCreating(true)
+    try { await employeeService.create(form); toast.success('Employee created'); setShowCreate(false); fetchData() }
+    catch (err: any) { toast.error(err?.response?.data?.message || 'Failed') }
+    finally { setCreating(false) }
+  }
+
+  if (data.blocked) {
+    return (
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">Employees</h1>
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-12 text-center">
+          <Lock size={48} className="mx-auto text-gray-300 dark:text-gray-600 mb-4" />
+          <p className="text-gray-500 dark:text-gray-400 font-medium text-lg">Feature Locked</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Upgrade to Standard or Pro+ to access employee management.</p>
+          <Link to="/pricing"><Button variant="primary" size="sm" className="mt-4">Upgrade Plan</Button></Link>
+        </div>
+      </div>
+    )
   }
 
   const columns = [
-    { key: 'name', label: 'Name' },
-    {
-      key: 'email',
-      label: 'Email',
-      render: (val: string) => (
-        <a href={`mailto:${val}`} className="text-blue-600 hover:underline flex items-center gap-1">
-          <Mail className="w-4 h-4" />
-          {val}
-        </a>
-      ),
-    },
-    { key: 'department', label: 'Department' },
-    { key: 'position', label: 'Position' },
-    {
-      key: 'phone',
-      label: 'Phone',
-      render: (val: string) => 
-        val ? (
-          <a href={`tel:${val}`} className="text-blue-600 hover:underline flex items-center gap-1">
-            <Phone className="w-4 h-4" />
-            {val}
-          </a>
-        ) : '-',
-    },
-    {
-      key: 'status',
-      label: 'Status',
-      render: (val: string) => (
-        <span className={`px-2 py-1 rounded text-sm font-medium ${getStatusColor(val || 'active')}`}>
-          {val || 'active'}
-        </span>
-      ),
-    },
+    { key: 'fullName', header: 'Name', render: (e: any) => <span className="font-medium">{e.fullName}</span> },
+    { key: 'email', header: 'Email' },
+    { key: 'department', header: 'Department', render: (e: any) => <span className="capitalize">{e.department}</span> },
+    { key: 'position', header: 'Position' },
+    { key: 'performanceScore', header: 'Performance', render: (e: any) => (
+      <span className={`font-medium ${e.performanceScore >= 70 ? 'text-green-600' : e.performanceScore >= 40 ? 'text-yellow-600' : 'text-red-600'}`}>{e.performanceScore}%</span>
+    )}
   ]
 
-  const activeCount = employees.filter((e) => e.status === 'active').length
-  const onLeaveCount = employees.filter((e) => e.status === 'on-leave').length
-
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
-        {/* Error Display */}
-        {error && (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 text-red-600" />
-              <p className="text-red-800">{error}</p>
-            </div>
-            <button
-              onClick={refetch}
-              className="text-red-600 hover:text-red-800 flex items-center gap-1"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Retry
-            </button>
-          </div>
-        )}
-
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-gray-900">Employees</h1>
-          <Button onClick={() => {}}>Add Employee</Button>
-        </div>
-
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Widget title="Total Employees">
-            <p className="text-4xl font-bold text-gray-900">{employees.length}</p>
-            <p className="text-sm text-gray-600 mt-2">Team members</p>
-          </Widget>
-          <Widget title="Active">
-            <p className="text-4xl font-bold text-green-600">{activeCount}</p>
-            <p className="text-sm text-gray-600 mt-2">Working now</p>
-          </Widget>
-          <Widget title="On Leave">
-            <p className="text-4xl font-bold text-yellow-600">{onLeaveCount}</p>
-            <p className="text-sm text-gray-600 mt-2">Currently away</p>
-          </Widget>
-        </div>
-
-        {/* Search */}
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <Input
-            type="text"
-            placeholder="Search employees by name, email, or department..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full"
-          />
-        </div>
-
-        {/* Employees Table */}
-        <Widget title="Team Members">
-          {loading ? (
-            <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            </div>
-          ) : employees.length > 0 ? (
-            <>
-              <Table columns={columns} data={employees} />
-              <div className="mt-4 flex justify-between items-center">
-                <span className="text-sm text-gray-600">
-                  Page {page} | Employees: {employees.length}
-                </span>
-                <div className="flex gap-2">
-                  <Button
-                    variant="secondary"
-                    onClick={prevPage}
-                    disabled={page === 1}
-                  >
-                    Previous
-                  </Button>
-                  <Button variant="secondary" onClick={nextPage}>
-                    Next
-                  </Button>
-                </div>
-              </div>
-            </>
-          ) : (
-            <p className="text-gray-500 py-8 text-center">No employees found</p>
-          )}
-        </Widget>
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Employees</h1>
+        <Button onClick={() => setShowCreate(true)}><Plus size={16} className="mr-1" /> Add Employee</Button>
       </div>
-    </DashboardLayout>
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <Table columns={columns} data={data.employees || []} loading={loading} />
+      </div>
+      {data.pagination && data.pagination.pages > 1 && (
+        <div className="flex justify-center gap-2 mt-4">
+          {Array.from({ length: data.pagination.pages }, (_, i) => (
+            <button key={i} onClick={() => setPage(i + 1)} className={`px-3 py-1 rounded text-sm ${page === i + 1 ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700'}`}>{i + 1}</button>
+          ))}
+        </div>
+      )}
+      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Add Employee">
+        <div className="space-y-3">
+          <Input label="Full Name" value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} />
+          <Input label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <Input label="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          <div>
+            <label className="block text-sm font-medium mb-1">Department</label>
+            <select value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm dark:bg-gray-800">
+              {DEPARTMENT_OPTIONS.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
+          </div>
+          <Input label="Position" value={form.position} onChange={(e) => setForm({ ...form, position: e.target.value })} />
+          <Input label="Employee ID" value={form.employeeId} onChange={(e) => setForm({ ...form, employeeId: e.target.value })} />
+          <Button onClick={handleCreate} loading={creating} className="w-full">Create</Button>
+        </div>
+      </Modal>
+    </div>
   )
 }

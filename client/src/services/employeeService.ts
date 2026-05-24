@@ -1,29 +1,38 @@
-import { apiFetch } from './api'
-import { Employee, PaginatedResponse } from './types'
+import api from './api'
 
 export const employeeService = {
-  getEmployees: (page = 1, limit = 20) =>
-    apiFetch<PaginatedResponse<Employee>>(
-      `/employees?page=${page}&limit=${limit}`
-    ),
-  getDepartmentPerformance: () =>
-    apiFetch<any>('/employees/departments'),
-  getEmployee: (id: string) => apiFetch<Employee>(`/employees/${id}`),
-  createEmployee: (data: Partial<Employee>) =>
-    apiFetch<Employee>('/employees', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-  updateEmployee: (id: string, data: Partial<Employee>) =>
-    apiFetch<Employee>(`/employees/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
-  recordPerformance: (id: string, data: any) =>
-    apiFetch<Employee>(`/employees/${id}/performance`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
-  deleteEmployee: (id: string) =>
-    apiFetch(`/employees/${id}`, { method: 'DELETE' }),
+  getAll: async (params?: Record<string, any>) => {
+    const { data } = await api.get('/client/employees', { params })
+    return data
+  },
+
+  getById: async (id: string) => {
+    const { data } = await api.get(`/client/employees/${id}`)
+    return data
+  },
+
+  create: async (payload: Record<string, any>) => {
+    const { data } = await api.post('/client/employees', payload)
+    return data
+  },
+
+  update: async (id: string, payload: Record<string, any>) => {
+    const { data } = await api.put(`/client/employees/${id}`, payload)
+    return data
+  },
+
+  recordPerformance: async (id: string, payload: Record<string, any>) => {
+    const { data } = await api.put(`/client/employees/${id}/performance`, payload)
+    return data
+  },
+
+  deactivate: async (id: string) => {
+    const { data } = await api.delete(`/client/employees/${id}`)
+    return data
+  },
+
+  getDepartmentPerformance: async () => {
+    const { data } = await api.get('/client/employees/departments')
+    return data
+  }
 }

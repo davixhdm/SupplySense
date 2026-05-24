@@ -1,24 +1,33 @@
-import { apiFetch } from './api'
-import { Supplier, PaginatedResponse } from './types'
+import api from './api'
 
 export const supplierService = {
-  getSuppliers: (page = 1, limit = 20) =>
-    apiFetch<PaginatedResponse<Supplier>>(
-      `/suppliers?page=${page}&limit=${limit}`
-    ),
-  getSupplierPerformance: () =>
-    apiFetch<any>('/suppliers/performance'),
-  getSupplier: (id: string) => apiFetch<Supplier>(`/suppliers/${id}`),
-  createSupplier: (data: Partial<Supplier>) =>
-    apiFetch<Supplier>('/suppliers', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-  updateSupplier: (id: string, data: Partial<Supplier>) =>
-    apiFetch<Supplier>(`/suppliers/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
-  deleteSupplier: (id: string) =>
-    apiFetch(`/suppliers/${id}`, { method: 'DELETE' }),
+  getAll: async (params?: Record<string, any>) => {
+    const { data } = await api.get('/client/suppliers', { params })
+    return data
+  },
+
+  getById: async (id: string) => {
+    const { data } = await api.get(`/client/suppliers/${id}`)
+    return data
+  },
+
+  create: async (payload: Record<string, any>) => {
+    const { data } = await api.post('/client/suppliers', payload)
+    return data
+  },
+
+  update: async (id: string, payload: Record<string, any>) => {
+    const { data } = await api.put(`/client/suppliers/${id}`, payload)
+    return data
+  },
+
+  delete: async (id: string) => {
+    const { data } = await api.delete(`/client/suppliers/${id}`)
+    return data
+  },
+
+  getPerformance: async () => {
+    const { data } = await api.get('/client/suppliers/performance')
+    return data
+  }
 }

@@ -1,106 +1,30 @@
 import { useState, useEffect } from 'react'
 
-interface DeviceInfo {
-  isMobile: boolean
-  isTablet: boolean
-  isDesktop: boolean
-  deviceType: 'mobile' | 'tablet' | 'desktop'
-  os: 'ios' | 'android' | 'windows' | 'macos' | 'linux' | 'unknown'
-  browser: string
-  screenWidth: number
-  screenHeight: number
-  isTouchDevice: boolean
-  isOnline: boolean
-}
-
-export const useDeviceCheck = (): DeviceInfo => {
-  const [deviceInfo, setDeviceInfo] = useState<DeviceInfo>({
-    isMobile: false,
-    isTablet: false,
-    isDesktop: true,
-    deviceType: 'desktop',
-    os: 'unknown',
-    browser: 'unknown',
-    screenWidth: typeof window !== 'undefined' ? window.innerWidth : 0,
-    screenHeight: typeof window !== 'undefined' ? window.innerHeight : 0,
-    isTouchDevice: false,
-    isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
-  })
+export function useDeviceCheck() {
+  const [deviceId, setDeviceId] = useState<string>('')
+  const [isActivated, setIsActivated] = useState(false)
 
   useEffect(() => {
-    const detectDevice = () => {
-      const userAgent = navigator.userAgent.toLowerCase()
-      const screenWidth = window.innerWidth
-      const screenHeight = window.innerHeight
-
-      // Detect device type
-      const isMobile = /mobile|android|iphone|ipod|windows phone/.test(userAgent)
-      const isTablet =
-        /ipad|android|tablet|kindle|playbook|silk|nexus|xoom/.test(userAgent) &&
-        !isMobile
-      const isDesktop = !isMobile && !isTablet
-
-      // Detect OS
-      let os: 'ios' | 'android' | 'windows' | 'macos' | 'linux' | 'unknown' = 'unknown'
-      if (/iphone|ipad|ipod|ios/.test(userAgent)) os = 'ios'
-      else if (/android/.test(userAgent)) os = 'android'
-      else if (/windows|win32/.test(userAgent)) os = 'windows'
-      else if (/macintosh|mac os x/.test(userAgent)) os = 'macos'
-      else if (/linux/.test(userAgent)) os = 'linux'
-
-      // Detect browser
-      let browser = 'unknown'
-      if (/chrome|chromium|crios/.test(userAgent)) browser = 'Chrome'
-      else if (/safari/.test(userAgent) && !/chrome/.test(userAgent)) browser = 'Safari'
-      else if (/firefox/.test(userAgent)) browser = 'Firefox'
-      else if (/msie|trident/.test(userAgent)) browser = 'Internet Explorer'
-      else if (/edge|edg\//.test(userAgent)) browser = 'Edge'
-      else if (/opera|opr\//.test(userAgent)) browser = 'Opera'
-
-      // Check if touch device
-      const isTouchDevice =
-        typeof window !== 'undefined' &&
-        (navigator.maxTouchPoints > 0 ||
-          // @ts-ignore
-          navigator.msMaxTouchPoints > 0 ||
-          'ontouchstart' in window)
-
-      setDeviceInfo({
-        isMobile,
-        isTablet,
-        isDesktop,
-        deviceType: isDesktop ? 'desktop' : isMobile ? 'mobile' : 'tablet',
-        os,
-        browser,
-        screenWidth,
-        screenHeight,
-        isTouchDevice,
-        isOnline: navigator.onLine,
-      })
-    }
-
-    detectDevice()
-
-    // Handle window resize
-    window.addEventListener('resize', detectDevice)
-
-    // Handle online/offline status
-    const handleOnline = () => {
-      setDeviceInfo((prev) => ({ ...prev, isOnline: true }))
-    }
-    const handleOffline = () => {
-      setDeviceInfo((prev) => ({ ...prev, isOnline: false }))
-    }
-
-    window.addEventListener('online', handleOnline)
-    window.addEventListener('offline', handleOffline)
-
-    return () => {
-      window.removeEventListener('resize', detectDevice)
-      window.removeEventListener('online', handleOnline)
-      window.removeEventListener('offline', handleOffline)
+    const stored = localStorage.getItem('supplysense-device-id')
+    if (stored) {
+      setDeviceId(stored)
+      setIsActivated(true)
     }
   }, [])
 
-  return deviceInfo
+  const activateDevice = (licenseKey: string): string => {
+    const existing = localStorage.getItem('supplysense-device-id')
+    if (existing) {
+      setDeviceId(existing)
+      setIsActivated(true)
+      return existing
+    }
+    const id = 'device-' + Math.random().toString(36).substring(2, 10) + '-' + Date.now().toString(36)
+    localStorage.setItem('supplysense-device-id', id)
+    setDeviceId(id)
+    setIsActivated(true)
+    return id
+  }
+
+  return { deviceId, isActivated, activateDevice }
 }

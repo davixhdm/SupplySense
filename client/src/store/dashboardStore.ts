@@ -1,15 +1,20 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 
-interface DashboardStore {
-  selectedPeriod: 'day' | 'week' | 'month' | 'year'
-  setSelectedPeriod: (period: 'day' | 'week' | 'month' | 'year') => void
-  sidebarOpen: boolean
-  setSidebarOpen: (open: boolean) => void
+interface DashboardState {
+  sidebarCollapsed: boolean
+  toggleSidebar: () => void
 }
 
-export const useDashboardStore = create<DashboardStore>((set) => ({
-  selectedPeriod: 'month',
-  setSelectedPeriod: (period) => set({ selectedPeriod: period }),
-  sidebarOpen: true,
-  setSidebarOpen: (open) => set({ sidebarOpen: open }),
-}))
+export const useDashboardStore = create<DashboardState>()(
+  persist(
+    (set) => ({
+      sidebarCollapsed: false,
+      toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed }))
+    }),
+    {
+      name: 'supplysense-client-sidebar',
+      partialize: (state) => ({ sidebarCollapsed: state.sidebarCollapsed })
+    }
+  )
+)

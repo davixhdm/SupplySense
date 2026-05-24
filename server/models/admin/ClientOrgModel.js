@@ -2,36 +2,12 @@ import mongoose from 'mongoose';
 
 const clientOrgSchema = new mongoose.Schema(
   {
-    organizationName: {
-      type: String,
-      required: true,
-      trim: true
-    },
-    slug: {
-      type: String,
-      unique: true,
-      lowercase: true,
-      trim: true
-    },
-    email: {
-      type: String,
-      required: true,
-      lowercase: true,
-      trim: true
-    },
-    phone: {
-      type: String,
-      default: ''
-    },
-    industry: {
-      type: String,
-      enum: ['ecommerce', 'manufacturing', 'agro-supply', 'retail', 'wholesale', 'other'],
-      default: 'other'
-    },
-    logo: {
-      type: String,
-      default: ''
-    },
+    organizationName: { type: String, required: true, trim: true },
+    slug: { type: String, unique: true, lowercase: true, trim: true },
+    email: { type: String, required: true, lowercase: true, trim: true },
+    phone: { type: String, default: '' },
+    industry: { type: String, enum: ['ecommerce', 'manufacturing', 'agro-supply', 'retail', 'wholesale', 'other'], default: 'other' },
+    logo: { type: String, default: '' },
     address: {
       street: { type: String, default: '' },
       city: { type: String, default: '' },
@@ -39,67 +15,27 @@ const clientOrgSchema = new mongoose.Schema(
       country: { type: String, default: '' },
       postalCode: { type: String, default: '' }
     },
-    timezone: {
-      type: String,
-      default: 'Africa/Nairobi'
-    },
-    language: {
-      type: String,
-      default: 'en'
-    },
-    plan: {
-      type: String,
-      enum: ['trial', 'standard', 'proplus'],
-      default: 'trial'
-    },
-    billingCycle: {
-      type: String,
-      enum: ['monthly', 'yearly', 'permanent', 'trial'],
-      default: 'trial'
-    },
-    planStartDate: {
-      type: Date,
-      default: Date.now
-    },
-    planEndDate: {
-      type: Date,
-      default: null
-    },
-    trialEndDate: {
-      type: Date,
-      default: null
-    },
-    licenseKey: {
-      type: String,
-      default: null
-    },
-    isActive: {
-      type: Boolean,
-      default: true
-    },
-    isSuspended: {
-      type: Boolean,
-      default: false
-    },
-    suspendedReason: {
-      type: String,
-      default: ''
-    },
-    suspendedAt: {
-      type: Date,
-      default: null
-    },
-    erpConnections: [
-      {
-        type: { type: String, enum: ['odoo', 'zoho', 'sap', 'dynamics', 'custom', 'csv'] },
-        name: String,
-        url: String,
-        apiKey: String,
-        isActive: { type: Boolean, default: true },
-        lastSync: { type: Date, default: null },
-        syncInterval: { type: String, enum: ['realtime', 'hourly', 'daily', 'manual'], default: 'hourly' }
-      }
-    ],
+    timezone: { type: String, default: 'Africa/Nairobi' },
+    language: { type: String, default: 'en' },
+    plan: { type: String, enum: ['trial', 'standard', 'proplus'], default: 'trial' },
+    billingCycle: { type: String, enum: ['monthly', 'yearly', 'permanent', 'trial'], default: 'trial' },
+    planStartDate: { type: Date, default: Date.now },
+    planEndDate: { type: Date, default: null },
+    trialEndDate: { type: Date, default: null },
+    licenseKey: { type: String, default: null },
+    isActive: { type: Boolean, default: true },
+    isSuspended: { type: Boolean, default: false },
+    suspendedReason: { type: String, default: '' },
+    suspendedAt: { type: Date, default: null },
+    erpConnections: [{
+      type: { type: String, enum: ['odoo', 'zoho', 'sap', 'dynamics', 'custom', 'csv'] },
+      name: String,
+      url: String,
+      apiKey: String,
+      isActive: { type: Boolean, default: true },
+      lastSync: { type: Date, default: null },
+      syncInterval: { type: String, enum: ['realtime', 'hourly', 'daily', 'manual'], default: 'hourly' }
+    }],
     settings: {
       currency: { type: String, enum: ['KSh', 'USD', 'EUR', 'GBP'], default: 'KSh' },
       dateFormat: { type: String, default: 'DD/MM/YYYY' },
@@ -109,37 +45,25 @@ const clientOrgSchema = new mongoose.Schema(
         whatsapp: { type: Boolean, default: false }
       }
     },
-    maxUsers: {
-      type: Number,
-      default: 1
+    backupSchedule: {
+      enabled: { type: Boolean, default: false },
+      frequency: { type: String, enum: ['hourly', 'daily', 'weekly', 'monthly'], default: 'daily' },
+      time: { type: String, default: '02:00' },
+      email: { type: String, default: '' },
+      sendOnBackup: { type: Boolean, default: false }
     },
-    maxProducts: {
-      type: Number,
-      default: 50
-    },
-    maxSuppliers: {
-      type: Number,
-      default: 10
-    },
-    subscriptionId: {
-      type: String,
-      default: null
-    },
-    createdBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'AdminUser',
-      default: null
-    }
+    maxUsers: { type: Number, default: 1 },
+    maxProducts: { type: Number, default: 50 },
+    maxSuppliers: { type: Number, default: 10 },
+    subscriptionId: { type: String, default: null },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'AdminUser', default: null }
   },
   { timestamps: true }
 );
 
 clientOrgSchema.pre('save', function (next) {
   if (this.isModified('organizationName') || !this.slug) {
-    this.slug = this.organizationName
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
+    this.slug = this.organizationName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
   }
   next();
 });

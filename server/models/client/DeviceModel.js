@@ -10,7 +10,7 @@ const deviceSchema = new mongoose.Schema(
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'ClientUser',
-      required: true
+      default: null
     },
     deviceId: {
       type: String,
@@ -58,8 +58,16 @@ const deviceSchema = new mongoose.Schema(
     },
     verificationMethod: {
       type: String,
-      enum: ['otp', 'link', 'admin', ''],
+      enum: ['otp', 'link', 'admin', 'license', ''],
       default: ''
+    },
+    verificationOTP: {
+      type: String,
+      default: null
+    },
+    verificationOTPExpires: {
+      type: Date,
+      default: null
     },
     lastActive: {
       type: Date,

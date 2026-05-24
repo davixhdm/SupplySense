@@ -3,13 +3,13 @@ import AuditLog from '../../models/admin/AuditLogModel.js';
 
 const getPreferences = async (req, res) => {
   try {
-    const org = await ClientOrg.findById(req.user.organizationId).select('settings currency');
+    const org = await ClientOrg.findById(req.user.organizationId).select('settings backupSchedule');
     if (!org) {
       return res.status(404).json({ message: 'Organization not found.' });
     }
     res.json({
       settings: org.settings,
-      currency: org.settings?.currency || 'KSh'
+      backupSchedule: org.backupSchedule
     });
   } catch (error) {
     console.error('Get preferences error:', error);
@@ -19,7 +19,7 @@ const getPreferences = async (req, res) => {
 
 const updatePreferences = async (req, res) => {
   try {
-    const { dateFormat, notificationChannels, dashboardLayout } = req.body;
+    const { dateFormat, notificationChannels, dashboardLayout, backupSchedule } = req.body;
 
     const org = await ClientOrg.findById(req.user.organizationId);
     if (!org) return res.status(404).json({ message: 'Organization not found.' });
@@ -32,6 +32,12 @@ const updatePreferences = async (req, res) => {
       };
     }
     if (dashboardLayout) org.settings.dashboardLayout = dashboardLayout;
+    if (backupSchedule) {
+      org.backupSchedule = {
+        ...org.backupSchedule.toObject(),
+        ...backupSchedule
+      };
+    }
 
     await org.save();
 
@@ -46,14 +52,14 @@ const updatePreferences = async (req, res) => {
       severity: 'info'
     });
 
-    res.json(org.settings);
+    res.json({
+      settings: org.settings,
+      backupSchedule: org.backupSchedule
+    });
   } catch (error) {
     console.error('Update preferences error:', error);
     res.status(500).json({ message: 'Internal server error.' });
   }
 };
 
-export {
-  getPreferences,
-  updatePreferences
-};
+export { getPreferences, updatePreferences };

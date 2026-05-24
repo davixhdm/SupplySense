@@ -1,22 +1,28 @@
-import { apiFetch } from './api'
-import { Transaction, PaginatedResponse } from './types'
+import api from './api'
 
 export const transactionService = {
-  getTransactions: (page = 1, limit = 20) =>
-    apiFetch<PaginatedResponse<Transaction>>(
-      `/transactions?page=${page}&limit=${limit}`
-    ),
-  getTransactionSummary: (period?: string) =>
-    apiFetch<any>(`/transactions/summary${period ? `?period=${period}` : ''}`),
-  getTransaction: (id: string) => apiFetch<Transaction>(`/transactions/${id}`),
-  createTransaction: (data: Partial<Transaction>) =>
-    apiFetch<Transaction>('/transactions', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-  updateTransaction: (id: string, data: Partial<Transaction>) =>
-    apiFetch<Transaction>(`/transactions/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
+  getAll: async (params?: Record<string, any>) => {
+    const { data } = await api.get('/client/transactions', { params })
+    return data
+  },
+
+  getById: async (id: string) => {
+    const { data } = await api.get(`/client/transactions/${id}`)
+    return data
+  },
+
+  create: async (payload: Record<string, any>) => {
+    const { data } = await api.post('/client/transactions', payload)
+    return data
+  },
+
+  update: async (id: string, payload: Record<string, any>) => {
+    const { data } = await api.put(`/client/transactions/${id}`, payload)
+    return data
+  },
+
+  getSummary: async (period?: string) => {
+    const { data } = await api.get('/client/transactions/summary', { params: { period } })
+    return data
+  }
 }

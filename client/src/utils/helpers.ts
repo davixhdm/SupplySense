@@ -1,213 +1,69 @@
-import { format, parseISO } from 'date-fns'
-import { DATE_FORMATS } from './constants'
-
-/**
- * Format a date string to a readable format
- */
-export const formatDate = (date: string | Date, formatType: keyof typeof DATE_FORMATS = 'SHORT'): string => {
-  try {
-    const dateObj = typeof date === 'string' ? parseISO(date) : date
-    return format(dateObj, DATE_FORMATS[formatType])
-  } catch {
-    return 'Invalid date'
-  }
-}
-
-/**
- * Format currency values
- */
-export const formatCurrency = (value: number, currency: string = 'USD'): string => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency,
-  }).format(value)
-}
-
-/**
- * Format number with thousand separators
- */
-export const formatNumber = (value: number, decimals: number = 0): string => {
-  return value.toLocaleString('en-US', {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
+export function formatDate(date: string | Date): string {
+  return new Date(date).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
   })
 }
 
-/**
- * Format percentage
- */
-export const formatPercentage = (value: number, decimals: number = 0): string => {
-  return `${value.toFixed(decimals)}%`
+export function formatCurrency(amount: number, currency: string = 'KSh'): string {
+  const currencyMap: Record<string, { locale: string; code: string }> = {
+    KSh: { locale: 'en-KE', code: 'KES' },
+    USD: { locale: 'en-US', code: 'USD' },
+    EUR: { locale: 'de-DE', code: 'EUR' },
+    GBP: { locale: 'en-GB', code: 'GBP' }
+  }
+
+  const config = currencyMap[currency] || currencyMap.KSh
+
+  return new Intl.NumberFormat(config.locale, {
+    style: 'currency',
+    currency: config.code,
+    minimumFractionDigits: 2
+  }).format(amount)
 }
 
-/**
- * Truncate text to specified length
- */
-export const truncate = (text: string, length: number = 50): string => {
-  if (text.length <= length) return text
-  return `${text.slice(0, length)}...`
-}
-
-/**
- * Capitalize first letter of string
- */
-export const capitalize = (text: string): string => {
-  return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase()
-}
-
-/**
- * Format full name
- */
-export const formatName = (firstName: string, lastName?: string): string => {
-  return lastName ? `${firstName} ${lastName}` : firstName
-}
-
-/**
- * Format phone number
- */
-export const formatPhone = (phone: string): string => {
-  const cleaned = phone.replace(/\D/g, '')
-  if (cleaned.length !== 10) return phone
-  return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`
-}
-
-/**
- * Get initials from name
- */
-export const getInitials = (name: string): string => {
+export function getInitials(name: string): string {
   return name
     .split(' ')
-    .map((word) => word[0])
+    .map((n) => n[0])
     .join('')
     .toUpperCase()
     .slice(0, 2)
 }
 
-/**
- * Calculate difference between two dates in days
- */
-export const getDaysDifference = (date1: Date | string, date2: Date | string = new Date()): number => {
-  const d1 = typeof date1 === 'string' ? parseISO(date1) : date1
-  const d2 = typeof date2 === 'string' ? parseISO(date2) : date2
-  const timeDiff = d2.getTime() - d1.getTime()
-  return Math.ceil(timeDiff / (1000 * 3600 * 24))
+export function classNames(...classes: (string | boolean | undefined | null)[]): string {
+  return classes.filter(Boolean).join(' ')
 }
 
-/**
- * Format file size
- */
-export const formatFileSize = (bytes: number): string => {
-  if (bytes === 0) return '0 Bytes'
-  const k = 1024
-  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i]
+export function truncate(str: string, length: number): string {
+  if (str.length <= length) return str
+  return str.slice(0, length) + '...'
 }
 
-/**
- * Debounce function
- */
-export const debounce = <T extends (...args: any[]) => any>(
-  func: T,
-  wait: number
-): ((...args: Parameters<T>) => void) => {
-  let timeout: NodeJS.Timeout | null = null
-
-  return function (...args: Parameters<T>) {
-    const later = () => {
-      timeout = null
-      func(...args)
-    }
-
-    if (timeout) clearTimeout(timeout)
-    timeout = setTimeout(later, wait)
+export function convertCurrencyAmount(amount: number, fromCurrency: string, toCurrency: string): number {
+  const rates: Record<string, number> = {
+    KSh: 1,
+    USD: 0.0067,
+    EUR: 0.0062,
+    GBP: 0.0053
   }
+
+  if (fromCurrency === toCurrency) return amount
+  const inKSh = fromCurrency === 'KSh' ? amount : amount / (rates[fromCurrency] || 1)
+  return toCurrency === 'KSh' ? Math.round(inKSh) : Math.round(inKSh * (rates[toCurrency] || 1) * 100) / 100
 }
 
-/**
- * Throttle function
- */
-export const throttle = <T extends (...args: any[]) => any>(
-  func: T,
-  limit: number
-): ((...args: Parameters<T>) => void) => {
-  let inThrottle: boolean = false
-
-  return function (...args: Parameters<T>) {
-    if (!inThrottle) {
-      func(...args)
-      inThrottle = true
-      setTimeout(() => {
-        inThrottle = false
-      }, limit)
-    }
+export function getExchangeRate(fromCurrency: string, toCurrency: string): number {
+  const rates: Record<string, number> = {
+    KSh: 1,
+    USD: 0.0067,
+    EUR: 0.0062,
+    GBP: 0.0053
   }
-}
-
-/**
- * Sleep/delay utility
- */
-export const sleep = (ms: number): Promise<void> => {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-/**
- * Deep clone object
- */
-export const deepClone = <T>(obj: T): T => {
-  return JSON.parse(JSON.stringify(obj))
-}
-
-/**
- * Merge objects
- */
-export const mergeObjects = <T extends Record<string, any>>(target: T, source: Partial<T>): T => {
-  return { ...target, ...source }
-}
-
-/**
- * Get query parameter from URL
- */
-export const getQueryParam = (param: string): string | null => {
-  const params = new URLSearchParams(window.location.search)
-  return params.get(param)
-}
-
-/**
- * Build query string from object
- */
-export const buildQueryString = (params: Record<string, any>): string => {
-  const query = new URLSearchParams()
-  Object.entries(params).forEach(([key, value]) => {
-    if (value !== null && value !== undefined) {
-      query.append(key, String(value))
-    }
-  })
-  return query.toString()
-}
-
-/**
- * Check if object is empty
- */
-export const isEmpty = (obj: Record<string, any>): boolean => {
-  return Object.keys(obj).length === 0
-}
-
-/**
- * Get random item from array
- */
-export const randomItem = <T>(arr: T[]): T => {
-  return arr[Math.floor(Math.random() * arr.length)]
-}
-
-/**
- * Shuffle array
- */
-export const shuffle = <T>(arr: T[]): T[] => {
-  const newArr = [...arr]
-  for (let i = newArr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [newArr[i], newArr[j]] = [newArr[j], newArr[i]]
-  }
-  return newArr
+  if (fromCurrency === toCurrency) return 1
+  const inKSh = 1 / (rates[fromCurrency] || 1)
+  return inKSh * (rates[toCurrency] || 1)
 }

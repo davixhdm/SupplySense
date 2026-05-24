@@ -1,141 +1,111 @@
-import { useEffect, useState } from 'react'
-import { DashboardLayout } from '../../layouts/DashboardLayout'
-import { Widget } from '../../components/dashboard/Widget'
-import { Table } from '../../components/common/Table'
-import { Input } from '../../components/common/Input'
-import { Button } from '../../components/common/Button'
-import { AlertCircle, RefreshCw } from 'lucide-react'
-import { inventoryService } from '../../services'
-import { useApiPaginated } from '../../hooks'
-
-interface InventoryItem {
-  id: string
-  _id?: string
-  sku: string
-  name: string
-  currentStock: number
-  reorderPoint: number
-  supplier: string
-  stockoutRisk: 'low' | 'medium' | 'high'
-  lastRestocked: string
-}
+import { useState, useEffect } from 'react'
+import { inventoryService } from '../../services/inventoryService'
+import Table from '../../components/common/Table'
+import Button from '../../components/common/Button'
+import Modal from '../../components/common/Modal'
+import Input from '../../components/common/Input'
+import { formatCurrency } from '../../utils/helpers'
+import { Plus, Search } from 'lucide-react'
+import toast from 'react-hot-toast'
 
 export default function InventoryPage() {
+  const [data, setData] = useState<any>({ products: [] })
+  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [showCreate, setShowCreate] = useState(false)
+  const [showStock, setShowStock] = useState<any>(null)
+  const [form, setForm] = useState({ sku: '', name: '', stockLevel: '0', reorderThreshold: '10', unitCost: '', sellingPrice: '' })
+  const [stockForm, setStockForm] = useState({ quantity: '', type: 'increase', reason: '' })
+  const [creating, setCreating] = useState(false)
 
-  // Fetch inventory using the hook
-  const {
-    data: inventoryItems,
-    loading,
-    error,
-    page,
-    limit,
-    nextPage,
-    prevPage,
-    refetch,
-  } = useApiPaginated(inventoryService.getInventory, 1, 20)
-
-  const getRiskColor = (risk: string) => {
-    const colors: Record<string, string> = {
-      low: 'bg-green-100 text-green-800',
-      medium: 'bg-yellow-100 text-yellow-800',
-      high: 'bg-red-100 text-red-800',
-    }
-    return colors[risk] || 'bg-gray-100 text-gray-800'
+  const fetchData = async () => {
+    setLoading(true)
+    try { const res = await inventoryService.getAll({ page, search: search || undefined }); setData(res) }
+    catch (err) { toast.error('Failed') }
+    finally { setLoading(false) }
   }
 
-  const getStockStatus = (current: number, reorder: number) => {
-    if (current <= reorder) return 'bg-red-50 border-red-200'
-    if (current <= reorder * 1.5) return 'bg-yellow-50 border-yellow-200'
-    return 'bg-green-50 border-green-200'
+  useEffect(() => { fetchData() }, [page])
+
+  const handleCreate = async () => {
+    if (!form.sku || !form.name) { toast.error('SKU and name required'); return }
+    setCreating(true)
+    try {
+      await inventoryService.create({ ...form, stockLevel: parseInt(form.stockLevel), reorderThreshold: parseInt(form.reorderThreshold), unitCost: parseFloat(form.unitCost) || 0, sellingPrice: parseFloat(form.sellingPrice) || 0 })
+      toast.success('Product created')
+      setShowCreate(false)
+      fetchData()
+    } catch (err: any) { toast.error(err?.response?.data?.message || 'Failed') }
+    finally { setCreating(false) }
+  }
+
+  const handleStockAdjust = async () => {
+    try {
+      await inventoryService.adjustStock(showStock._id, parseInt(stockForm.quantity), stockForm.type, stockForm.reason)
+      toast.success('Stock updated')
+      setShowStock(null)
+      fetchData()
+    } catch (err) { toast.error('Failed') }
   }
 
   const columns = [
-    { key: 'sku', label: 'SKU' },
-    { key: 'name', label: 'Product Name' },
-    {
-      key: 'quantity',
-      label: 'Current Stock',
-      render: (val: number, item: any) => (
-        <div className={`px-3 py-1 rounded border ${getStockStatus(val, item.reorderLevel)}`}>
-          {val}
-        </div>
-      ),
-    },
-    { key: 'reorderLevel', label: 'Reorder Point' },
-    { key: 'supplier', label: 'Supplier' },
-    { key: 'category', label: 'Category' },
+    { key: 'sku', header: 'SKU', render: (p: any) => <span className="font-mono text-xs">{p.sku}</span> },
+    { key: 'name', header: 'Name', render: (p: any) => <span className="font-medium">{p.name}</span> },
+    { key: 'stockLevel', header: 'Stock', render: (p: any) => <span className={p.stockLevel <= p.reorderThreshold ? 'text-red-600 font-medium' : ''}>{p.stockLevel}</span> },
+    { key: 'reorderThreshold', header: 'Threshold' },
+    { key: 'unitCost', header: 'Cost', render: (p: any) => formatCurrency(p.unitCost) },
+    { key: 'sellingPrice', header: 'Price', render: (p: any) => formatCurrency(p.sellingPrice) },
+    { key: 'actions', header: '', render: (p: any) => (
+      <Button variant="ghost" size="sm" onClick={() => { setShowStock(p); setStockForm({ quantity: '', type: 'increase', reason: '' }) }}>Stock</Button>
+    )}
   ]
 
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
-        {/* Error Display */}
-        {error && (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 text-red-600" />
-              <p className="text-red-800">{error}</p>
-            </div>
-            <button
-              onClick={refetch}
-              className="text-red-600 hover:text-red-800 flex items-center gap-1"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Retry
-            </button>
-          </div>
-        )}
-
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold">Inventory Management</h1>
-          <Button variant="primary">Add Product</Button>
-        </div>
-
-        {/* Search and Filter */}
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <Input
-            type="text"
-            placeholder="Search products..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full"
-          />
-        </div>
-
-        {/* Inventory Table */}
-        <Widget title="Products">
-          {loading ? (
-            <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            </div>
-          ) : inventoryItems.length > 0 ? (
-            <>
-              <Table data={inventoryItems} columns={columns} />
-              <div className="mt-4 flex justify-between items-center">
-                <span className="text-sm text-gray-600">
-                  Page {page} | Items: {inventoryItems.length}
-                </span>
-                <div className="flex gap-2">
-                  <Button
-                    variant="secondary"
-                    onClick={prevPage}
-                    disabled={page === 1}
-                  >
-                    Previous
-                  </Button>
-                  <Button variant="secondary" onClick={nextPage}>
-                    Next
-                  </Button>
-                </div>
-              </div>
-            </>
-          ) : (
-            <p className="text-gray-500 py-8 text-center">No products found</p>
-          )}
-        </Widget>
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Inventory</h1>
+        <Button onClick={() => setShowCreate(true)}><Plus size={16} className="mr-1" /> Add Product</Button>
       </div>
-    </DashboardLayout>
+      <div className="flex gap-2 mb-4">
+        <Input placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && fetchData()} />
+        <Button onClick={fetchData}><Search size={16} /></Button>
+      </div>
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <Table columns={columns} data={data.products || []} loading={loading} />
+      </div>
+      {data.pagination && data.pagination.pages > 1 && (
+        <div className="flex justify-center gap-2 mt-4">
+          {Array.from({ length: data.pagination.pages }, (_, i) => (
+            <button key={i} onClick={() => setPage(i + 1)} className={`px-3 py-1 rounded text-sm ${page === i + 1 ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700'}`}>{i + 1}</button>
+          ))}
+        </div>
+      )}
+      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Add Product">
+        <div className="space-y-3">
+          <Input label="SKU" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} />
+          <Input label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <Input label="Stock Level" type="number" value={form.stockLevel} onChange={(e) => setForm({ ...form, stockLevel: e.target.value })} />
+          <Input label="Reorder Threshold" type="number" value={form.reorderThreshold} onChange={(e) => setForm({ ...form, reorderThreshold: e.target.value })} />
+          <Input label="Unit Cost" type="number" value={form.unitCost} onChange={(e) => setForm({ ...form, unitCost: e.target.value })} />
+          <Input label="Selling Price" type="number" value={form.sellingPrice} onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })} />
+          <Button onClick={handleCreate} loading={creating} className="w-full">Create</Button>
+        </div>
+      </Modal>
+      <Modal isOpen={!!showStock} onClose={() => setShowStock(null)} title={`Adjust Stock: ${showStock?.name}`}>
+        <div className="space-y-3">
+          <Input label="Quantity" type="number" value={stockForm.quantity} onChange={(e) => setStockForm({ ...stockForm, quantity: e.target.value })} />
+          <div>
+            <label className="block text-sm font-medium mb-1">Type</label>
+            <select value={stockForm.type} onChange={(e) => setStockForm({ ...stockForm, type: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm dark:bg-gray-800">
+              <option value="increase">Increase</option>
+              <option value="decrease">Decrease</option>
+            </select>
+          </div>
+          <Input label="Reason" value={stockForm.reason} onChange={(e) => setStockForm({ ...stockForm, reason: e.target.value })} />
+          <Button onClick={handleStockAdjust} className="w-full">Update</Button>
+        </div>
+      </Modal>
+    </div>
   )
 }

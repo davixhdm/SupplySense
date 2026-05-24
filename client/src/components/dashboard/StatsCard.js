@@ -1,5 +1,0 @@
-import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
-import { TrendingUp, TrendingDown } from 'lucide-react';
-export function StatsCard({ title, value, icon, change, changeType = 'increase', bgColor = 'bg-blue-50', }) {
-    return (_jsx("div", { className: `${bgColor} rounded-lg p-6 shadow-sm`, children: _jsxs("div", { className: "flex justify-between items-start", children: [_jsxs("div", { children: [_jsx("p", { className: "text-gray-600 text-sm font-medium", children: title }), _jsx("p", { className: "text-3xl font-bold text-gray-900 mt-2", children: value }), change !== undefined && (_jsxs("div", { className: "flex items-center gap-1 mt-2", children: [changeType === 'increase' ? (_jsx(TrendingUp, { size: 16, className: "text-green-600" })) : (_jsx(TrendingDown, { size: 16, className: "text-red-600" })), _jsxs("span", { className: changeType === 'increase' ? 'text-green-600' : 'text-red-600', children: [Math.abs(change), "%"] })] }))] }), _jsx("div", { className: "text-4xl opacity-20", children: icon })] }) }));
-}
