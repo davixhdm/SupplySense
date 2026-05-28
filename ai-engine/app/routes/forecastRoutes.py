@@ -8,7 +8,14 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict, Any
 
+from app.services.predictionService import PredictionService
+from app.services.dataProcessingService import DataProcessingService
+
 router = APIRouter()
+
+# Initialize services
+prediction_service = PredictionService()
+data_processing_service = DataProcessingService()
 
 
 class InventoryData(BaseModel):
@@ -46,7 +53,7 @@ async def get_forecast(request: ForecastRequest) -> Dict[str, Any]:
         request: Forecast request with inventory data
 
     Returns:
-        Forecast predictions with confidence intervals
+        Forecast predictions with confidence intervals and AI insights
 
     Example:
         POST /api/forecast/
@@ -59,18 +66,21 @@ async def get_forecast(request: ForecastRequest) -> Dict[str, Any]:
         }
     """
     try:
-        # TODO: Integrate DataProcessingService
-        # TODO: Integrate ForecastingModel
-        # Placeholder response
+        # Convert request data to list of dicts
+        data_list = [item.dict() for item in request.data]
+        
+        # Process data through core pipeline
+        processed_data = data_processing_service.process_inventory_data(data_list)
+        
+        # Get forecast with AI insights
+        forecast_result = prediction_service.get_forecast(request.product_id, processed_data)
+        
         return {
-            "product_id": request.product_id,
-            "forecast": [90, 85, 80, 75, 70, 65, 60],
-            "confidence_interval": 10.5,
-            "mean_forecast": 75.0,
+            **forecast_result,
             "status": "success",
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Forecast error: {str(e)}")
 
 
 @router.get("/{product_id}")
@@ -88,11 +98,12 @@ async def get_product_forecast(product_id: int) -> Dict[str, Any]:
         GET /api/forecast/1
     """
     try:
-        # TODO: Fetch from database or cache
+        # This would typically fetch from a database/cache
         return {
             "product_id": product_id,
             "forecast": None,
             "status": "pending",
+            "message": "Database/cache integration needed"
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

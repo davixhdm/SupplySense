@@ -42,21 +42,20 @@ async def health_check():
 
 
 # Import and include route modules
-# Note: Routes will be imported here once they are created
-# from app.routes import (
-#     forecastRoutes,
-#     anomalyRoutes,
-#     supplierRoutes,
-#     customerRoutes,
-#     recommendationRoutes,
-# )
+from app.routes import (
+    forecastRoutes,
+    anomalyRoutes,
+    supplierRoutes,
+    customerRoutes,
+    recommendationRoutes,
+)
 
 # Include routers
-# app.include_router(forecastRoutes.router, prefix="/api/forecast", tags=["Forecasting"])
-# app.include_router(anomalyRoutes.router, prefix="/api/anomaly", tags=["Anomaly Detection"])
-# app.include_router(supplierRoutes.router, prefix="/api/suppliers", tags=["Supplier Scoring"])
-# app.include_router(customerRoutes.router, prefix="/api/customers", tags=["Customer Prediction"])
-# app.include_router(recommendationRoutes.router, prefix="/api/recommendations", tags=["Recommendations"])
+app.include_router(forecastRoutes.router, prefix="/api/forecast", tags=["Forecasting"])
+app.include_router(anomalyRoutes.router, prefix="/api/anomaly", tags=["Anomaly Detection"])
+app.include_router(supplierRoutes.router, prefix="/api/suppliers", tags=["Supplier Scoring"])
+app.include_router(customerRoutes.router, prefix="/api/customers", tags=["Customer Prediction"])
+app.include_router(recommendationRoutes.router, prefix="/api/recommendations", tags=["Recommendations"])
 
 
 @app.get("/")

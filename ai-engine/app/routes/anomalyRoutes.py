@@ -8,7 +8,14 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict, Any
 
+from app.services.predictionService import PredictionService
+from app.services.dataProcessingService import DataProcessingService
+
 router = APIRouter()
+
+# Initialize services
+prediction_service = PredictionService()
+data_processing_service = DataProcessingService()
 
 
 class InventoryData(BaseModel):
@@ -39,13 +46,13 @@ class AnomalyResponse(BaseModel):
 @router.post("/", response_model=Dict[str, Any])
 async def detect_anomalies(request: AnomalyRequest) -> Dict[str, Any]:
     """
-    Detect anomalies in inventory data.
+    Detect anomalies in inventory data with AI analysis.
 
     Args:
         request: Anomaly detection request with inventory data
 
     Returns:
-        Anomalies detected with scores
+        Anomalies detected with scores and AI analysis
 
     Example:
         POST /api/anomaly/
@@ -58,18 +65,24 @@ async def detect_anomalies(request: AnomalyRequest) -> Dict[str, Any]:
         }
     """
     try:
-        # TODO: Integrate DataProcessingService
-        # TODO: Integrate AnomalyModel
-        # Placeholder response
+        if not request.product_id:
+            raise HTTPException(status_code=400, detail="product_id is required")
+        
+        # Convert request data to list of dicts
+        data_list = [item.dict() for item in request.data]
+        
+        # Process data through core pipeline
+        processed_data = data_processing_service.process_inventory_data(data_list)
+        
+        # Detect anomalies with AI insights
+        anomaly_result = prediction_service.detect_anomalies(request.product_id, processed_data)
+        
         return {
-            "anomalies_detected": False,
-            "anomaly_count": 0,
-            "anomalies": [],
-            "mean_anomaly_score": 0.1,
+            **anomaly_result,
             "status": "success",
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Anomaly detection error: {str(e)}")
 
 
 @router.get("/{product_id}")
@@ -87,11 +100,12 @@ async def get_product_anomalies(product_id: int) -> Dict[str, Any]:
         GET /api/anomaly/1
     """
     try:
-        # TODO: Fetch from database or cache
+        # This would typically fetch from a database/cache
         return {
             "product_id": product_id,
             "anomalies": [],
-            "status": "success",
+            "status": "pending",
+            "message": "Database/cache integration needed"
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -118,10 +132,23 @@ async def batch_anomaly_detection(requests: List[AnomalyRequest]) -> Dict[str, A
         ]
     """
     try:
-        # TODO: Implement batch processing
+        results = []
+        for req in requests:
+            # Convert request data to list of dicts
+            data_list = [item.dict() for item in req.data]
+            
+            # Process data through core pipeline
+            processed_data = data_processing_service.process_inventory_data(data_list)
+            
+            # Detect anomalies
+            if req.product_id:
+                result = prediction_service.detect_anomalies(req.product_id, processed_data)
+                results.append(result)
+        
         return {
             "total_products": len(requests),
-            "anomalies_found": 0,
+            "anomalies_found": sum(1 for r in results if r.get("anomalies_detected")),
+            "results": results,
             "status": "success",
         }
     except Exception as e:
