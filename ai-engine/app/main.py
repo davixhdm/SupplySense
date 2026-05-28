@@ -48,6 +48,7 @@ from app.routes import (
     supplierRoutes,
     customerRoutes,
     recommendationRoutes,
+    insightRoutes,
 )
 
 # Include routers
@@ -56,6 +57,7 @@ app.include_router(anomalyRoutes.router, prefix="/api/anomaly", tags=["Anomaly D
 app.include_router(supplierRoutes.router, prefix="/api/suppliers", tags=["Supplier Scoring"])
 app.include_router(customerRoutes.router, prefix="/api/customers", tags=["Customer Prediction"])
 app.include_router(recommendationRoutes.router, prefix="/api/recommendations", tags=["Recommendations"])
+app.include_router(insightRoutes.router, prefix="/api/insights", tags=["Insights"])
 
 
 @app.get("/")
