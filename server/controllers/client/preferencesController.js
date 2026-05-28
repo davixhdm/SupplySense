@@ -3,13 +3,15 @@ import AuditLog from '../../models/admin/AuditLogModel.js';
 
 const getPreferences = async (req, res) => {
   try {
-    const org = await ClientOrg.findById(req.user.organizationId).select('settings backupSchedule');
+    const org = await ClientOrg.findById(req.user.organizationId).select('settings backupSchedule enabledModules mode');
     if (!org) {
       return res.status(404).json({ message: 'Organization not found.' });
     }
     res.json({
       settings: org.settings,
-      backupSchedule: org.backupSchedule
+      backupSchedule: org.backupSchedule,
+      enabledModules: org.enabledModules,
+      mode: org.mode || 'standalone'
     });
   } catch (error) {
     console.error('Get preferences error:', error);
@@ -19,7 +21,7 @@ const getPreferences = async (req, res) => {
 
 const updatePreferences = async (req, res) => {
   try {
-    const { dateFormat, notificationChannels, dashboardLayout, backupSchedule } = req.body;
+    const { dateFormat, notificationChannels, dashboardLayout, backupSchedule, enabledModules, mode } = req.body;
 
     const org = await ClientOrg.findById(req.user.organizationId);
     if (!org) return res.status(404).json({ message: 'Organization not found.' });
@@ -38,6 +40,16 @@ const updatePreferences = async (req, res) => {
         ...backupSchedule
       };
     }
+    if (enabledModules) {
+      org.enabledModules = {
+        ...org.enabledModules.toObject(),
+        ...enabledModules
+      };
+      org.markModified('enabledModules');
+    }
+    if (mode && ['standalone', 'erp'].includes(mode)) {
+      org.mode = mode;
+    }
 
     await org.save();
 
@@ -47,14 +59,16 @@ const updatePreferences = async (req, res) => {
       actionType: 'settings_updated',
       performedBy: req.user._id,
       performedByModel: 'ClientUser',
-      description: 'User preferences updated',
+      description: `Preferences updated${mode ? ` - Mode: ${mode}` : ''}`,
       ipAddress: req.ip,
       severity: 'info'
     });
 
     res.json({
       settings: org.settings,
-      backupSchedule: org.backupSchedule
+      backupSchedule: org.backupSchedule,
+      enabledModules: org.enabledModules,
+      mode: org.mode || 'standalone'
     });
   } catch (error) {
     console.error('Update preferences error:', error);

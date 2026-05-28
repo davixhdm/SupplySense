@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supplierService } from '../../services/supplierService'
+import { useAuthStore } from '../../store/authStore'
 import Table from '../../components/common/Table'
 import Button from '../../components/common/Button'
 import Modal from '../../components/common/Modal'
@@ -8,6 +9,8 @@ import { Plus } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 export default function SuppliersPage() {
+  const organization = useAuthStore((state) => state.organization)
+  const isERP = organization?.mode === 'erp'
   const [data, setData] = useState<any>({ suppliers: [] })
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
@@ -50,8 +53,11 @@ export default function SuppliersPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Suppliers</h1>
-        <Button onClick={() => setShowCreate(true)}><Plus size={16} className="mr-1" /> Add Supplier</Button>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Suppliers</h1>
+          {isERP && <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">Synced from ERP</p>}
+        </div>
+        {!isERP && <Button onClick={() => setShowCreate(true)}><Plus size={16} className="mr-1" /> Add Supplier</Button>}
       </div>
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
         <Table columns={columns} data={data.suppliers || []} loading={loading} />
@@ -63,17 +69,19 @@ export default function SuppliersPage() {
           ))}
         </div>
       )}
-      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Add Supplier">
-        <div className="space-y-3">
-          <Input label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          <Input label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-          <Input label="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-          <Input label="Contact Person" value={form.contactPerson} onChange={(e) => setForm({ ...form, contactPerson: e.target.value })} />
-          <Input label="Delivery Timeline (days)" type="number" value={form.deliveryTimeline} onChange={(e) => setForm({ ...form, deliveryTimeline: e.target.value })} />
-          <Input label="Payment Terms" value={form.paymentTerms} onChange={(e) => setForm({ ...form, paymentTerms: e.target.value })} />
-          <Button onClick={handleCreate} loading={creating} className="w-full">Create</Button>
-        </div>
-      </Modal>
+      {!isERP && (
+        <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Add Supplier">
+          <div className="space-y-3">
+            <Input label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            <Input label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+            <Input label="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+            <Input label="Contact Person" value={form.contactPerson} onChange={(e) => setForm({ ...form, contactPerson: e.target.value })} />
+            <Input label="Delivery Timeline (days)" type="number" value={form.deliveryTimeline} onChange={(e) => setForm({ ...form, deliveryTimeline: e.target.value })} />
+            <Input label="Payment Terms" value={form.paymentTerms} onChange={(e) => setForm({ ...form, paymentTerms: e.target.value })} />
+            <Button onClick={handleCreate} loading={creating} className="w-full">Create</Button>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }

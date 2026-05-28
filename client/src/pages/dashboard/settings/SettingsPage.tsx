@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import CompanyInfoTab from './CompanyInfoTab'
 import PreferencesTab from './PreferencesTab'
+import ModulesTab from './ModulesTab'
+import ERPTab from './ERPTab'
 import UsersTab from './UsersTab'
 import DevicesTab from './DevicesTab'
 import BackupTab from './BackupTab'
@@ -9,6 +11,8 @@ import { classNames } from '../../../utils/helpers'
 const tabs = [
   { key: 'company', label: 'Company Info', component: CompanyInfoTab },
   { key: 'preferences', label: 'Preferences', component: PreferencesTab },
+  { key: 'modules', label: 'Modules', component: ModulesTab },
+  { key: 'erp', label: 'ERP Connect', component: ERPTab },
   { key: 'users', label: 'Users', component: UsersTab },
   { key: 'devices', label: 'Devices', component: DevicesTab },
   { key: 'backups', label: 'Backups', component: BackupTab },

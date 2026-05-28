@@ -62,8 +62,19 @@ const clientLogin = async (req, res) => {
     }
 
     const organization = await ClientOrg.findById(user.organizationId);
-    if (!organization || !organization.isActive || organization.isSuspended) {
-      return res.status(403).json({ message: 'Organization is not active.' });
+    if (!organization) {
+      return res.status(403).json({ message: 'Organization not found.' });
+    }
+
+    if (organization.isSuspended) {
+      return res.status(403).json({ message: 'Organization has been suspended.' });
+    }
+
+    if (!organization.isActive) {
+      return res.status(403).json({
+        message: 'Your application is under admin review. You will receive an email with your license key once approved.',
+        pendingApproval: true
+      });
     }
 
     if (organization.plan === 'trial' && organization.trialEndDate && new Date() > organization.trialEndDate) {
@@ -76,7 +87,7 @@ const clientLogin = async (req, res) => {
 
     if (organization.plan !== 'trial' && !organization.licenseKey) {
       return res.status(403).json({
-        message: 'Your payment is being processed. License key will be sent via SMS & Email within 24 hours.',
+        message: 'Your application is under admin review. You will receive an email with your license key once approved.',
         pendingApproval: true
       });
     }
@@ -130,7 +141,8 @@ const clientLogin = async (req, res) => {
         plan: organization.plan,
         billingCycle: organization.billingCycle,
         planEndDate: organization.planEndDate,
-        trialEndDate: organization.trialEndDate
+        trialEndDate: organization.trialEndDate,
+        enabledModules: organization.enabledModules
       }
     });
   } catch (error) {
@@ -202,6 +214,7 @@ const registerOrganization = async (req, res) => {
       trialEndDate,
       planEndDate,
       licenseKey: null,
+      isActive: plan === 'trial',
       planStartDate: new Date(),
       maxUsers: plan === 'trial' ? 1 : plan === 'standard' ? 10 : 999999,
       maxProducts: plan === 'trial' ? 50 : plan === 'standard' ? 5000 : 999999,
@@ -209,11 +222,7 @@ const registerOrganization = async (req, res) => {
       settings: {
         currency: env.DEFAULT_CURRENCY,
         dateFormat: 'DD/MM/YYYY',
-        notificationChannels: {
-          email: true,
-          sms: false,
-          whatsapp: false
-        }
+        notificationChannels: { email: true, sms: false, whatsapp: false }
       }
     });
 
@@ -245,18 +254,29 @@ const registerOrganization = async (req, res) => {
       severity: 'info'
     });
 
-    const token = generateClientToken(user._id, organization._id, 'admin');
+    if (plan === 'trial') {
+      const token = generateClientToken(user._id, organization._id, 'admin');
+      return res.status(201).json({
+        message: 'Registration successful.',
+        token,
+        user: user.toSafeObject(),
+        organization: {
+          name: organization.organizationName,
+          plan: organization.plan,
+          licenseKey: licenseKeyStr,
+          trialEndDate: organization.trialEndDate,
+          planEndDate: organization.planEndDate
+        }
+      });
+    }
 
     res.status(201).json({
-      message: 'Registration successful.',
-      token,
+      message: 'Registration successful. Please complete payment to activate your account.',
       user: user.toSafeObject(),
       organization: {
         name: organization.organizationName,
         plan: organization.plan,
-        licenseKey: licenseKeyStr,
-        trialEndDate: organization.trialEndDate,
-        planEndDate: organization.planEndDate
+        billingCycle: organization.billingCycle
       }
     });
   } catch (error) {
@@ -288,28 +308,26 @@ const activateLicense = async (req, res) => {
       return res.status(404).json({ message: 'Organization not found.' });
     }
 
-    if (license.isFirstActivation) {
-      license.deviceId = deviceId;
-      license.isFirstActivation = false;
-      await license.save();
-    }
+    license.deviceId = deviceId;
+    license.isFirstActivation = false;
+    await license.save();
 
-const existingDevice = await Device.findOne({ deviceId, organizationId: organization._id, isActive: true });
-if (!existingDevice) {
-  await Device.create({
-    organizationId: organization._id,
-    deviceId,
-    deviceName: deviceName || 'Unknown Device',
-    deviceType: deviceType || 'desktop',
-    operatingSystem: operatingSystem || '',
-    browser: browser || '',
-    ipAddress: req.ip,
-    isVerified: true,
-    verifiedAt: new Date(),
-    verificationMethod: 'license',
-    trustLevel: 'trusted'
-  });
-}
+    const existingDevice = await Device.findOne({ deviceId, organizationId: organization._id, isActive: true });
+    if (!existingDevice) {
+      await Device.create({
+        organizationId: organization._id,
+        deviceId,
+        deviceName: deviceName || 'Unknown Device',
+        deviceType: deviceType || 'desktop',
+        operatingSystem: operatingSystem || '',
+        browser: browser || '',
+        ipAddress: req.ip,
+        isVerified: true,
+        verifiedAt: new Date(),
+        verificationMethod: 'license',
+        trustLevel: 'trusted'
+      });
+    }
 
     await AuditLog.create({
       organizationId: organization._id,
@@ -338,51 +356,17 @@ if (!existingDevice) {
 const verifyDevice = async (req, res) => {
   try {
     const { deviceId, otp } = req.body;
+    if (!deviceId || !otp) return res.status(400).json({ message: 'Device ID and OTP are required.' });
 
-    if (!deviceId || !otp) {
-      return res.status(400).json({ message: 'Device ID and OTP are required.' });
-    }
-
-    const device = await Device.findOne({
-      deviceId,
-      organizationId: req.user.organizationId,
-      userId: req.user._id,
-      isActive: true
-    });
-
-    if (!device) {
-      return res.status(404).json({ message: 'Device not found.' });
-    }
-
-    if (device.isVerified) {
-      return res.status(400).json({ message: 'Device already verified.' });
-    }
-
-    if (device.verificationOTP !== otp) {
-      return res.status(400).json({ message: 'Invalid OTP.' });
-    }
-
-    if (device.verificationOTPExpires && new Date() > device.verificationOTPExpires) {
-      return res.status(400).json({ message: 'OTP expired.' });
-    }
+    const device = await Device.findOne({ deviceId, organizationId: req.user.organizationId, userId: req.user._id, isActive: true });
+    if (!device) return res.status(404).json({ message: 'Device not found.' });
+    if (device.isVerified) return res.status(400).json({ message: 'Device already verified.' });
+    if (device.verificationOTP !== otp) return res.status(400).json({ message: 'Invalid OTP.' });
+    if (device.verificationOTPExpires && new Date() > device.verificationOTPExpires) return res.status(400).json({ message: 'OTP expired.' });
 
     await device.verify('otp');
-
-    await AuditLog.create({
-      organizationId: req.user.organizationId,
-      action: 'Device verified',
-      actionType: 'device_activated',
-      performedBy: req.user._id,
-      performedByModel: 'ClientUser',
-      description: `Device ${deviceId} verified via OTP`,
-      deviceId,
-      ipAddress: req.ip,
-      severity: 'info'
-    });
-
     res.status(200).json({ message: 'Device verified successfully.' });
   } catch (error) {
-    console.error('Verify device error:', error);
     res.status(500).json({ message: 'Internal server error.' });
   }
 };
@@ -390,36 +374,20 @@ const verifyDevice = async (req, res) => {
 const sendDeviceOTP = async (req, res) => {
   try {
     const { deviceId } = req.body;
-    if (!deviceId) {
-      return res.status(400).json({ message: 'Device ID is required.' });
-    }
+    if (!deviceId) return res.status(400).json({ message: 'Device ID is required.' });
 
-    const device = await Device.findOne({
-      deviceId,
-      organizationId: req.user.organizationId,
-      userId: req.user._id,
-      isActive: true
-    });
-
-    if (!device) {
-      return res.status(404).json({ message: 'Device not found.' });
-    }
+    const device = await Device.findOne({ deviceId, organizationId: req.user.organizationId, userId: req.user._id, isActive: true });
+    if (!device) return res.status(404).json({ message: 'Device not found.' });
 
     const otp = generateOTP(6);
     device.verificationOTP = otp;
     device.verificationOTPExpires = new Date(Date.now() + 10 * 60 * 1000);
     await device.save();
 
-    if (req.user.email) {
-      await sendDeviceVerificationEmail(req.user.email, otp);
-    }
-    if (req.user.phone) {
-      await sendDeviceOTPSMS(req.user.phone, otp);
-    }
-
+    if (req.user.email) await sendDeviceVerificationEmail(req.user.email, otp);
+    if (req.user.phone) await sendDeviceOTPSMS(req.user.phone, otp);
     res.status(200).json({ message: 'OTP sent successfully.' });
   } catch (error) {
-    console.error('Send device OTP error:', error);
     res.status(500).json({ message: 'Internal server error.' });
   }
 };
@@ -427,14 +395,10 @@ const sendDeviceOTP = async (req, res) => {
 const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
-    if (!email) {
-      return res.status(400).json({ message: 'Email is required.' });
-    }
+    if (!email) return res.status(400).json({ message: 'Email is required.' });
 
     const user = await ClientUser.findOne({ email: email.toLowerCase() });
-    if (!user) {
-      return res.status(200).json({ message: 'If the email exists, a reset link has been sent.' });
-    }
+    if (!user) return res.status(200).json({ message: 'If the email exists, a reset link has been sent.' });
 
     const resetToken = generateRandomToken();
     user.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
@@ -443,10 +407,8 @@ const forgotPassword = async (req, res) => {
 
     const resetUrl = `${env.CLIENT_APP_URL}/reset-password/${resetToken}`;
     await sendPasswordResetEmail(user.email, resetUrl);
-
     res.status(200).json({ message: 'If the email exists, a reset link has been sent.' });
   } catch (error) {
-    console.error('Forgot password error:', error);
     res.status(500).json({ message: 'Internal server error.' });
   }
 };
@@ -454,32 +416,19 @@ const forgotPassword = async (req, res) => {
 const resetPassword = async (req, res) => {
   try {
     const { token, newPassword } = req.body;
-    if (!token || !newPassword) {
-      return res.status(400).json({ message: 'Token and new password are required.' });
-    }
-
-    if (!isValidPassword(newPassword)) {
-      return res.status(400).json({ message: 'Password must be at least 8 characters long.' });
-    }
+    if (!token || !newPassword) return res.status(400).json({ message: 'Token and new password are required.' });
+    if (!isValidPassword(newPassword)) return res.status(400).json({ message: 'Password must be at least 8 characters long.' });
 
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
-    const user = await ClientUser.findOne({
-      resetPasswordToken: hashedToken,
-      resetPasswordExpires: { $gt: new Date() }
-    });
-
-    if (!user) {
-      return res.status(400).json({ message: 'Invalid or expired reset token.' });
-    }
+    const user = await ClientUser.findOne({ resetPasswordToken: hashedToken, resetPasswordExpires: { $gt: new Date() } });
+    if (!user) return res.status(400).json({ message: 'Invalid or expired reset token.' });
 
     user.password = newPassword;
     user.resetPasswordToken = null;
     user.resetPasswordExpires = null;
     await user.save();
-
     res.status(200).json({ message: 'Password reset successfully.' });
   } catch (error) {
-    console.error('Reset password error:', error);
     res.status(500).json({ message: 'Internal server error.' });
   }
 };
@@ -487,65 +436,35 @@ const resetPassword = async (req, res) => {
 const submitManualPayment = async (req, res) => {
   try {
     const { plan, billingCycle, amount, currency, paymentMethod, paymentDetails } = req.body;
-
-    if (!plan || !billingCycle || !amount || !paymentMethod) {
-      return res.status(400).json({ message: 'Missing payment details.' });
-    }
+    if (!plan || !billingCycle || !amount || !paymentMethod) return res.status(400).json({ message: 'Missing payment details.' });
 
     const validMethods = ['mpesa_send', 'mpesa_paybill', 'mpesa_till'];
-    if (!validMethods.includes(paymentMethod)) {
-      return res.status(400).json({ message: 'Invalid payment method for manual submission.' });
-    }
+    if (!validMethods.includes(paymentMethod)) return res.status(400).json({ message: 'Invalid payment method for manual submission.' });
 
     const organization = await ClientOrg.findById(req.user.organizationId);
-
     const pendingActivation = await PendingActivation.create({
       organizationId: organization._id,
       userEmail: req.user.email,
       userPhone: req.user.phone || paymentDetails?.phoneNumber || '',
       fullName: req.user.fullName,
-      plan,
-      billingCycle,
-      amount,
+      plan, billingCycle, amount,
       currency: currency || 'KSh',
-      paymentMethod,
-      paymentDetails,
+      paymentMethod, paymentDetails,
       paymentConfirmed: false,
       confirmationMethod: 'manual',
       status: 'pending',
       submittedAt: new Date(),
-      expiresAt: new Date(Date.now() + 2 * 60 * 60 * 1000)
+      expiresAt: new Date(Date.now() + 3 * 60 * 60 * 1000)
     });
 
-    await AuditLog.create({
-      organizationId: organization._id,
-      action: 'Manual payment submitted',
-      actionType: 'system_event',
-      performedBy: req.user._id,
-      performedByModel: 'ClientUser',
-      description: `Manual payment submitted for ${plan} plan via ${paymentMethod}`,
-      ipAddress: req.ip,
-      severity: 'info'
-    });
-
-    if (req.user.phone) {
-      await sendPaymentConfirmationSMS(req.user.phone);
-    }
-    if (req.user.email) {
-      await sendPaymentConfirmationEmail(req.user.email, {
-        amount,
-        currency: currency || 'KSh',
-        plan,
-        billingCycle
-      });
-    }
+    if (req.user.phone) await sendPaymentConfirmationSMS(req.user.phone);
+    if (req.user.email) await sendPaymentConfirmationEmail(req.user.email, { amount, currency: currency || 'KSh', plan, billingCycle });
 
     res.status(201).json({
       message: 'Payment submitted for verification. You will receive your license key within 24 hours.',
       referenceNumber: pendingActivation._id
     });
   } catch (error) {
-    console.error('Submit manual payment error:', error);
     res.status(500).json({ message: 'Internal server error.' });
   }
 };
@@ -553,12 +472,9 @@ const submitManualPayment = async (req, res) => {
 const getProfile = async (req, res) => {
   try {
     const user = await ClientUser.findById(req.user._id);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found.' });
-    }
+    if (!user) return res.status(404).json({ message: 'User not found.' });
     res.json(user.toSafeObject());
   } catch (error) {
-    console.error('Get profile error:', error);
     res.status(500).json({ message: 'Internal server error.' });
   }
 };
@@ -569,14 +485,10 @@ const updateProfile = async (req, res) => {
     const updateFields = {};
     if (fullName) updateFields.fullName = fullName;
     if (phone !== undefined) updateFields.phone = phone;
-
     const user = await ClientUser.findByIdAndUpdate(req.user._id, updateFields, { new: true });
-    if (!user) {
-      return res.status(404).json({ message: 'User not found.' });
-    }
+    if (!user) return res.status(404).json({ message: 'User not found.' });
     res.json(user.toSafeObject());
   } catch (error) {
-    console.error('Update profile error:', error);
     res.status(500).json({ message: 'Internal server error.' });
   }
 };
@@ -584,36 +496,17 @@ const updateProfile = async (req, res) => {
 const changeClientPassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
-    if (!currentPassword || !newPassword) {
-      return res.status(400).json({ message: 'Current and new password are required.' });
-    }
-    if (!isValidPassword(newPassword)) {
-      return res.status(400).json({ message: 'Password must be at least 8 characters.' });
-    }
+    if (!currentPassword || !newPassword) return res.status(400).json({ message: 'Current and new password are required.' });
+    if (!isValidPassword(newPassword)) return res.status(400).json({ message: 'Password must be at least 8 characters.' });
 
     const user = await ClientUser.findById(req.user._id);
     const isMatch = await user.comparePassword(currentPassword);
-    if (!isMatch) {
-      return res.status(400).json({ message: 'Current password is incorrect.' });
-    }
+    if (!isMatch) return res.status(400).json({ message: 'Current password is incorrect.' });
 
     user.password = newPassword;
     await user.save();
-
-    await AuditLog.create({
-      organizationId: req.user.organizationId,
-      action: 'Password changed',
-      actionType: 'settings_updated',
-      performedBy: req.user._id,
-      performedByModel: 'ClientUser',
-      description: 'User changed password',
-      ipAddress: req.ip,
-      severity: 'info'
-    });
-
     res.json({ message: 'Password changed successfully.' });
   } catch (error) {
-    console.error('Change password error:', error);
     res.status(500).json({ message: 'Internal server error.' });
   }
 };
@@ -640,43 +533,82 @@ const getPublicSettings = async (req, res) => {
 
     const currency = settings.paymentConfig?.currency || 'KSh';
     const p = settings.pricing;
-
     const converted = {
       trial: { duration: p.trial.duration },
-      standard: {
-        monthly: fromKSh(p.standard.monthly, currency),
-        yearly: fromKSh(p.standard.yearly, currency),
-        permanent: fromKSh(p.standard.permanent, currency)
-      },
-      proplus: {
-        monthly: fromKSh(p.proplus.monthly, currency),
-        yearly: fromKSh(p.proplus.yearly, currency),
-        permanent: fromKSh(p.proplus.permanent, currency)
-      }
+      standard: { monthly: fromKSh(p.standard.monthly, currency), yearly: fromKSh(p.standard.yearly, currency), permanent: fromKSh(p.standard.permanent, currency) },
+      proplus: { monthly: fromKSh(p.proplus.monthly, currency), yearly: fromKSh(p.proplus.yearly, currency), permanent: fromKSh(p.proplus.permanent, currency) }
     };
 
     const settingsObj = settings.toObject();
     settingsObj.pricing = converted;
-
     res.json(settingsObj);
   } catch (error) {
-    console.error('Public settings error:', error);
+    res.status(500).json({ message: 'Internal server error.' });
+  }
+};
+const registerWithPayment = async (req, res) => {
+  try {
+    const { organizationName, fullName, email, phone, password, plan, billingCycle, amount, currency, paymentMethod, paymentDetails, paymentConfirmed, confirmationMethod } = req.body;
+
+    if (!organizationName || !fullName || !email || !password || !plan || !billingCycle || !amount || !paymentMethod) {
+      return res.status(400).json({ message: 'Required fields missing.' });
+    }
+
+    if (!isValidEmail(email)) return res.status(400).json({ message: 'Invalid email format.' });
+    if (!isValidPassword(password)) return res.status(400).json({ message: 'Password must be at least 8 characters.' });
+
+    const existingOrg = await ClientOrg.findOne({ email: email.toLowerCase() });
+    if (existingOrg) return res.status(400).json({ message: 'An account with this email already exists.' });
+
+    const organization = await ClientOrg.create({
+      organizationName,
+      slug: organizationName,
+      email: email.toLowerCase(),
+      phone: phone || '',
+      plan,
+      billingCycle,
+      isActive: false,
+      planStartDate: new Date(),
+      maxUsers: plan === 'standard' ? 10 : 999999,
+      maxProducts: plan === 'standard' ? 5000 : 999999,
+      maxSuppliers: plan === 'standard' ? 200 : 999999,
+      settings: { currency: currency || env.DEFAULT_CURRENCY, dateFormat: 'DD/MM/YYYY', notificationChannels: { email: true, sms: false, whatsapp: false } }
+    });
+
+    await ClientUser.create({
+      organizationId: organization._id,
+      fullName, email: email.toLowerCase(), password,
+      role: 'admin', department: 'management',
+      phone: phone || '', isVerified: true
+    });
+
+    await PendingActivation.create({
+      organizationId: organization._id,
+      userEmail: email.toLowerCase(),
+      userPhone: phone || '',
+      fullName,
+      plan, billingCycle, amount,
+      currency: currency || 'KSh',
+      paymentMethod,
+      paymentDetails,
+      paymentConfirmed: paymentConfirmed || false,
+      confirmationMethod: confirmationMethod || 'pending',
+      status: 'pending',
+      submittedAt: new Date(),
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
+    });
+
+    res.status(201).json({ message: 'Application submitted for review.' });
+  } catch (error) {
+    console.error('Register with payment error:', error);
     res.status(500).json({ message: 'Internal server error.' });
   }
 };
 
 export {
-  clientLogin,
-  clientLogout,
-  registerOrganization,
-  activateLicense,
-  verifyDevice,
-  sendDeviceOTP,
-  forgotPassword,
-  resetPassword,
-  submitManualPayment,
-  getProfile,
-  updateProfile,
-  changeClientPassword,
+  clientLogin, clientLogout, registerOrganization, activateLicense,
+  verifyDevice, sendDeviceOTP, forgotPassword, resetPassword,
+  submitManualPayment, getProfile, updateProfile, changeClientPassword,
+  registerWithPayment,
   getPublicSettings
 };

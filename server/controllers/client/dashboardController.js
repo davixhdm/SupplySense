@@ -4,7 +4,7 @@ import Supplier from '../../models/client/SupplierModel.js';
 import Alert from '../../models/client/AlertModel.js';
 import Customer from '../../models/client/CustomerModel.js';
 import Transaction from '../../models/client/TransactionModel.js';
-import Employee from '../../models/client/EmployeeModel.js';
+import { getRecommendations } from '../../services/aiApiService.js';
 
 const getDashboardStats = async (req, res) => {
   try {

@@ -20,6 +20,8 @@ interface Organization {
   planEndDate: string | null
   trialEndDate: string | null
   licenseKey?: string
+  enabledModules?: Record<string, boolean>
+  mode?: string
 }
 
 interface AuthState {
@@ -30,6 +32,7 @@ interface AuthState {
   setAuth: (token: string, user: User, organization?: Organization) => void
   clearAuth: () => void
   setHydrated: () => void
+  updateOrganization: (org: Partial<Organization>) => void
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -41,7 +44,8 @@ export const useAuthStore = create<AuthState>()(
       isHydrated: false,
       setAuth: (token, user, organization) => set({ token, user, organization: organization || null, isHydrated: true }),
       clearAuth: () => set({ token: null, user: null, organization: null, isHydrated: true }),
-      setHydrated: () => set({ isHydrated: true })
+      setHydrated: () => set({ isHydrated: true }),
+      updateOrganization: (org) => set((state) => ({ organization: { ...state.organization, ...org } as Organization }))
     }),
     {
       name: 'supplysense-client-auth',

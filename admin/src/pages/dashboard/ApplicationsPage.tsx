@@ -5,7 +5,7 @@ import Button from '../../components/common/Button'
 import Modal from '../../components/common/Modal'
 import { formatDate } from '../../utils/helpers'
 import { PLAN_LABELS, BILLING_LABELS } from '../../utils/constants'
-import { Search, Eye, Ban, RotateCcw } from 'lucide-react'
+import { Search, Eye, Ban, RotateCcw, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 export default function ApplicationsPage() {
@@ -14,6 +14,7 @@ export default function ApplicationsPage() {
   const [search, setSearch] = useState('')
   const [viewApp, setViewApp] = useState<any>(null)
   const [actionLoading, setActionLoading] = useState(false)
+  const [deleteLoading, setDeleteLoading] = useState<string | null>(null)
 
   const fetchApps = async () => {
     setLoading(true)
@@ -33,28 +34,24 @@ export default function ApplicationsPage() {
 
   const handleSuspend = async (id: string) => {
     setActionLoading(true)
-    try {
-      await applicationsService.suspend(id, 'Admin action')
-      toast.success('Organization suspended')
-      fetchApps()
-    } catch (err) {
-      toast.error('Failed to suspend')
-    } finally {
-      setActionLoading(false)
-    }
+    try { await applicationsService.suspend(id, 'Admin action'); toast.success('Organization suspended'); fetchApps() }
+    catch (err) { toast.error('Failed to suspend') }
+    finally { setActionLoading(false) }
   }
 
   const handleReactivate = async (id: string) => {
     setActionLoading(true)
-    try {
-      await applicationsService.reactivate(id)
-      toast.success('Organization reactivated')
-      fetchApps()
-    } catch (err) {
-      toast.error('Failed to reactivate')
-    } finally {
-      setActionLoading(false)
-    }
+    try { await applicationsService.reactivate(id); toast.success('Organization reactivated'); fetchApps() }
+    catch (err) { toast.error('Failed to reactivate') }
+    finally { setActionLoading(false) }
+  }
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Delete "${name}" and ALL associated data permanently? This cannot be undone.`)) return
+    setDeleteLoading(id)
+    try { await applicationsService.deleteOrg(id); toast.success('Organization deleted'); fetchApps() }
+    catch (err) { toast.error('Failed to delete') }
+    finally { setDeleteLoading(null) }
   }
 
   if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" /></div>
@@ -83,8 +80,10 @@ export default function ApplicationsPage() {
                     <span className="text-xs text-gray-400">{BILLING_LABELS[app.billingCycle]}</span>
                     {app.isSuspended ? (
                       <span className="px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">Suspended</span>
-                    ) : (
+                    ) : app.isActive ? (
                       <span className="px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Active</span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">Inactive</span>
                     )}
                   </div>
                   <p className="text-xs text-gray-400 mt-1">Created: {formatDate(app.createdAt)}</p>
@@ -96,6 +95,9 @@ export default function ApplicationsPage() {
                   ) : (
                     <Button variant="danger" size="sm" onClick={() => handleSuspend(app._id)} loading={actionLoading}><Ban size={14} className="mr-1" /> Suspend</Button>
                   )}
+                  <button onClick={() => handleDelete(app._id, app.organizationName)} disabled={deleteLoading === app._id} className="p-1.5 rounded hover:bg-red-50 text-red-500" title="Delete permanently">
+                    <Trash2 size={14} />
+                  </button>
                 </div>
               </div>
             </div>
@@ -105,7 +107,7 @@ export default function ApplicationsPage() {
 
       <Modal isOpen={!!viewApp} onClose={() => setViewApp(null)} title="Organization Details" size="lg">
         {viewApp && (
-          <div className="space-y-3 text-sm">
+          <div className="space-y-3 text-sm max-h-96 overflow-y-auto">
             <div className="grid grid-cols-2 gap-3">
               <div><span className="text-gray-500">Name:</span> <p className="font-medium">{viewApp.organizationName}</p></div>
               <div><span className="text-gray-500">Slug:</span> <p className="font-medium">{viewApp.slug}</p></div>
@@ -125,9 +127,16 @@ export default function ApplicationsPage() {
               </div>
             )}
             {viewApp.address && (viewApp.address.city || viewApp.address.country) && (
+              <div><span className="text-gray-500">Address:</span> <p className="font-medium">{[viewApp.address.street, viewApp.address.city, viewApp.address.state, viewApp.address.country].filter(Boolean).join(', ') || 'N/A'}</p></div>
+            )}
+            {viewApp.erpConnections?.length > 0 && (
               <div>
-                <span className="text-gray-500">Address:</span>
-                <p className="font-medium">{[viewApp.address.street, viewApp.address.city, viewApp.address.state, viewApp.address.country].filter(Boolean).join(', ') || 'N/A'}</p>
+                <span className="text-gray-500">ERP Connections:</span>
+                <div className="space-y-1 mt-1">
+                  {viewApp.erpConnections.map((erp: any, i: number) => (
+                    <p key={i} className="text-xs">{erp.name} ({erp.type}) — {erp.isActive ? 'Active' : 'Inactive'}</p>
+                  ))}
+                </div>
               </div>
             )}
           </div>

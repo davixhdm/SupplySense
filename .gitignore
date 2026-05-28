@@ -109,6 +109,9 @@ docker-compose.override.yml
 *.bin
 !ai-engine/models/.gitkeep
 
+# AI engine lib folder (ignored)
+ai-engine/lib/
+
 # Prisma
 prisma/*.db-journal
 

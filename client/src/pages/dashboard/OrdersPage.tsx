@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { orderService } from '../../services/orderService'
+import { useAuthStore } from '../../store/authStore'
 import Table from '../../components/common/Table'
 import Button from '../../components/common/Button'
 import Modal from '../../components/common/Modal'
@@ -10,6 +11,8 @@ import { Plus } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 export default function OrdersPage() {
+  const organization = useAuthStore((state) => state.organization)
+  const isERP = organization?.mode === 'erp'
   const [data, setData] = useState<any>({ orders: [] })
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
@@ -69,8 +72,11 @@ export default function OrdersPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Orders</h1>
-        <Button onClick={() => setShowCreate(true)}><Plus size={16} className="mr-1" /> New Order</Button>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Orders</h1>
+          {isERP && <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">Synced from ERP</p>}
+        </div>
+        {!isERP && <Button onClick={() => setShowCreate(true)}><Plus size={16} className="mr-1" /> New Order</Button>}
       </div>
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
         <Table columns={columns} data={data.orders || []} loading={loading} />
@@ -82,27 +88,31 @@ export default function OrdersPage() {
           ))}
         </div>
       )}
-      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="New Order">
-        <div className="space-y-3">
-          <Input label="Product ID" value={form.productId} onChange={(e) => setForm({ ...form, productId: e.target.value })} />
-          <Input label="Supplier ID" value={form.supplierId} onChange={(e) => setForm({ ...form, supplierId: e.target.value })} />
-          <Input label="Quantity" type="number" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} />
-          <Input label="Unit Price" type="number" value={form.unitPrice} onChange={(e) => setForm({ ...form, unitPrice: e.target.value })} />
-          <Button onClick={handleCreate} loading={creating} className="w-full">Create</Button>
-        </div>
-      </Modal>
-      <Modal isOpen={!!showStatus} onClose={() => setShowStatus(null)} title="Update Status">
-        <div className="space-y-3">
-          <div>
-            <label className="block text-sm font-medium mb-1">Status</label>
-            <select value={statusForm.status} onChange={(e) => setStatusForm({ ...statusForm, status: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm dark:bg-gray-800">
-              {Object.entries(ORDER_STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-            </select>
-          </div>
-          <Input label="Notes" value={statusForm.notes} onChange={(e) => setStatusForm({ ...statusForm, notes: e.target.value })} />
-          <Button onClick={handleStatusUpdate} className="w-full">Update</Button>
-        </div>
-      </Modal>
+      {!isERP && (
+        <>
+          <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="New Order">
+            <div className="space-y-3">
+              <Input label="Product ID" value={form.productId} onChange={(e) => setForm({ ...form, productId: e.target.value })} />
+              <Input label="Supplier ID" value={form.supplierId} onChange={(e) => setForm({ ...form, supplierId: e.target.value })} />
+              <Input label="Quantity" type="number" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} />
+              <Input label="Unit Price" type="number" value={form.unitPrice} onChange={(e) => setForm({ ...form, unitPrice: e.target.value })} />
+              <Button onClick={handleCreate} loading={creating} className="w-full">Create</Button>
+            </div>
+          </Modal>
+          <Modal isOpen={!!showStatus} onClose={() => setShowStatus(null)} title="Update Status">
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium mb-1">Status</label>
+                <select value={statusForm.status} onChange={(e) => setStatusForm({ ...statusForm, status: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm dark:bg-gray-800">
+                  {Object.entries(ORDER_STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                </select>
+              </div>
+              <Input label="Notes" value={statusForm.notes} onChange={(e) => setStatusForm({ ...statusForm, notes: e.target.value })} />
+              <Button onClick={handleStatusUpdate} className="w-full">Update</Button>
+            </div>
+          </Modal>
+        </>
+      )}
     </div>
   )
 }

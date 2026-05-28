@@ -12,6 +12,7 @@ import {
   getProfile,
   updateProfile,
   changeClientPassword,
+  registerWithPayment,
   getPublicSettings
 } from '../../controllers/client/clientAuthController.js';
 import clientAuthMiddleware from '../../middleware/client/clientAuthMiddleware.js';
@@ -32,5 +33,6 @@ router.post('/manual-payment', clientAuthMiddleware, submitManualPayment);
 router.get('/profile', clientAuthMiddleware, getProfile);
 router.put('/profile', clientAuthMiddleware, updateProfile);
 router.put('/change-password', clientAuthMiddleware, changeClientPassword);
+router.post('/register-with-payment', registerWithPayment);
 
 export default router;

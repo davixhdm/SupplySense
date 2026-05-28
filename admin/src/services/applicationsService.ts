@@ -29,5 +29,10 @@ export const applicationsService = {
   extendTrial: async (id: string, days: number) => {
     const { data } = await api.put(`/admin/applications/${id}/extend-trial`, { days })
     return data
+  },
+
+  deleteOrg: async (id: string) => {
+    const { data } = await api.delete(`/admin/applications/${id}`)
+    return data
   }
 }

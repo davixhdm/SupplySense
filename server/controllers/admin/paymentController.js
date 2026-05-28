@@ -173,13 +173,32 @@ const initiateMpesaPayment = async (req, res) => {
     res.status(500).json({ message: 'Failed to initiate payment.' });
   }
 };
+const deletePayment = async (req, res) => {
+  try {
+    const payment = await Payment.findById(req.params.id);
+    if (!payment) return res.status(404).json({ message: 'Payment not found.' });
 
-export {
-  getPaymentHistory,
-  getPaymentById,
-  refundPayment,
-  handleStripeWebhook,
-  handleMpesaCallback,
-  createStripeSession,
-  initiateMpesaPayment
+    if (payment.status !== 'completed' && payment.status !== 'refunded' && payment.status !== 'rejected') {
+      return res.status(400).json({ message: 'Only completed, refunded, or rejected payments can be deleted.' });
+    }
+
+    await Payment.findByIdAndDelete(req.params.id);
+
+    await AuditLog.create({
+      action: 'Payment record deleted',
+      actionType: 'admin_action',
+      performedBy: req.admin._id,
+      performedByModel: 'AdminUser',
+      targetId: req.params.id,
+      description: `Payment record ${payment._id} deleted`,
+      severity: 'warning'
+    });
+
+    res.json({ message: 'Payment record deleted.' });
+  } catch (error) {
+    console.error('Delete payment error:', error);
+    res.status(500).json({ message: 'Internal server error.' });
+  }
 };
+
+export { getPaymentHistory, getPaymentById, refundPayment, handleStripeWebhook, handleMpesaCallback, createStripeSession, initiateMpesaPayment, deletePayment };

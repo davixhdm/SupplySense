@@ -1,8 +1,11 @@
+import './dnsSet.js';
+
 import express from 'express';
 import cors from 'cors';
 import mongoose from 'mongoose';
 import connectDB from './config/db.js';
 import env from './config/env.js';
+import loggerMiddleware from './middleware/loggerMiddleware.js';
 
 import adminAuthRoutes from './routes/admin/adminAuthRoutes.js';
 import adminDashboardRoutes from './routes/admin/adminDashboardRoutes.js';
@@ -34,21 +37,20 @@ import preferencesRoutes from './routes/client/preferencesRoutes.js';
 import clientUserRoutes from './routes/client/clientUserRoutes.js';
 import deviceRoutes from './routes/client/deviceRoutes.js';
 import clientBackupRoutes from './routes/client/clientBackupRoutes.js';
-import loggerMiddleware from './middleware/loggerMiddleware.js';
+import erpRoutes from './routes/client/erpRoutes.js';
+
+import { startScheduler } from './services/syncScheduler.js';
 
 const app = express();
 
 connectDB();
 
 const allowedOrigins = [env.CLIENT_APP_URL, env.ADMIN_APP_URL].filter(Boolean);
-app.use(cors({
-  origin: allowedOrigins,
-  credentials: true
-}));
-app.use(loggerMiddleware);
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use('/api/payment/stripe/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+app.use(loggerMiddleware);
 
 app.get('/', (req, res) => {
   res.json({
@@ -58,37 +60,18 @@ app.get('/', (req, res) => {
     baseUrl: env.BASE_URL,
     clientUrl: env.CLIENT_APP_URL,
     adminUrl: env.ADMIN_APP_URL,
-    endpoints: {
-      api: '/api',
-      health: '/health',
-      admin: '/api/admin',
-      client: '/api/client'
-    }
+    endpoints: { api: '/api', health: '/health', admin: '/api/admin', client: '/api/client' }
   });
 });
 
 app.get('/api', (req, res) => {
-  res.json({
-    message: 'SupplySense API',
-    version: '1.0.0',
-    admin: '/api/admin',
-    client: '/api/client',
-    health: '/health'
-  });
+  res.json({ message: 'SupplySense API', version: '1.0.0', admin: '/api/admin', client: '/api/client', health: '/health' });
 });
 
 app.get('/health', async (req, res) => {
   const mongooseState = mongoose.connection.readyState;
   const states = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' };
-
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    database: states[mongooseState] || 'unknown',
-    environment: env.NODE_ENV,
-    version: '1.0.0'
-  });
+  res.json({ status: 'ok', timestamp: new Date().toISOString(), uptime: process.uptime(), database: states[mongooseState] || 'unknown', environment: env.NODE_ENV, version: '1.0.0' });
 });
 
 app.use('/api/admin/auth', adminAuthRoutes);
@@ -121,15 +104,10 @@ app.use('/api/client/preferences', preferencesRoutes);
 app.use('/api/client/users', clientUserRoutes);
 app.use('/api/client/devices', deviceRoutes);
 app.use('/api/client/backups', clientBackupRoutes);
+app.use('/api/client/erp', erpRoutes);
 
-app.use((req, res) => {
-  res.status(404).json({ message: 'Route not found.' });
-});
-
-app.use((err, req, res, next) => {
-  console.error('\x1b[31mUnhandled error:\x1b[0m', err);
-  res.status(500).json({ message: 'Internal server error.' });
-});
+app.use((req, res) => { res.status(404).json({ message: 'Route not found.' }); });
+app.use((err, req, res, next) => { console.error('\x1b[31mUnhandled error:\x1b[0m', err); res.status(500).json({ message: 'Internal server error.' }); });
 
 const PORT = env.PORT;
 app.listen(PORT, () => {
@@ -142,6 +120,7 @@ app.listen(PORT, () => {
   console.log(`\x1b[36m   Admin URL:   ${env.ADMIN_APP_URL}\x1b[0m`);
   console.log(`\x1b[36m   AI Engine:   ${env.AI_ENGINE_URL}\x1b[0m`);
   console.log(`\x1b[32m   CORS allowed origins:\x1b[0m ${allowedOrigins.join(', ')}\n`);
+  startScheduler();
 });
 
 export default app;

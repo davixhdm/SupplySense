@@ -18,6 +18,7 @@ import SuppliersPage from './pages/dashboard/SuppliersPage'
 import CustomersPage from './pages/dashboard/CustomersPage'
 import EmployeesPage from './pages/dashboard/EmployeesPage'
 import AIInsightsPage from './pages/dashboard/AIInsightsPage'
+import ReportsPage from './pages/dashboard/ReportsPage'
 import AlertSystemPage from './pages/dashboard/AlertSystemPage'
 import SettingsPage from './pages/dashboard/settings/SettingsPage'
 import { useAuthStore } from './store/authStore'
@@ -54,6 +55,7 @@ export default function App() {
           <Route path="customers" element={<CustomersPage />} />
           <Route path="employees" element={<EmployeesPage />} />
           <Route path="ai-insights" element={<AIInsightsPage />} />
+          <Route path="reports" element={<ReportsPage />} />
           <Route path="alerts" element={<AlertSystemPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>

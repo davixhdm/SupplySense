@@ -8,15 +8,11 @@ const getPendingActivations = async (req, res) => {
   try {
     const { page = 1, limit = 20, status } = req.query;
     const query = {};
-    if (status) query.status = status;
+    query.status = status || 'pending';
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     const [activations, total] = await Promise.all([
-      PendingActivation.find(query)
-        .populate('organizationId', 'organizationName email')
-        .sort({ submittedAt: -1 })
-        .skip(skip)
-        .limit(parseInt(limit)),
+      PendingActivation.find(query).populate('organizationId', 'organizationName email').sort({ submittedAt: -1 }).skip(skip).limit(parseInt(limit)),
       PendingActivation.countDocuments(query)
     ]);
 
@@ -43,15 +39,30 @@ const approveActivation = async (req, res) => {
     if (!org) return res.status(404).json({ message: 'Organization not found.' });
 
     const license = await generateLicenseKey(org._id, activation.plan, activation.billingCycle, activation.paymentId, 'payment');
+    
     org.licenseKey = license.key;
     org.plan = activation.plan;
     org.billingCycle = activation.billingCycle;
     org.planStartDate = new Date();
     org.trialEndDate = null;
+    org.isActive = true;
     await org.save();
 
     activation.licenseKeyGenerated = license.key;
     await activation.approve(req.admin._id);
+
+    await Payment.create({
+      organizationId: org._id,
+      pendingActivationId: activation._id,
+      amount: activation.amount,
+      currency: activation.currency,
+      plan: activation.plan,
+      billingCycle: activation.billingCycle,
+      paymentMethod: activation.paymentMethod,
+      paymentProviderRef: activation.paymentDetails?.transactionCode || activation.paymentDetails?.mpesaReceiptNumber || '',
+      status: 'completed',
+      paymentConfirmedAt: new Date()
+    });
 
     await sendLicenseToClient(license, org);
 
@@ -82,6 +93,18 @@ const rejectActivation = async (req, res) => {
     }
 
     await activation.reject(req.admin._id, reason || 'Rejected by admin');
+
+    await Payment.create({
+      organizationId: activation.organizationId,
+      pendingActivationId: activation._id,
+      amount: activation.amount,
+      currency: activation.currency,
+      plan: activation.plan,
+      billingCycle: activation.billingCycle,
+      paymentMethod: activation.paymentMethod,
+      status: 'rejected',
+      paymentConfirmedAt: new Date()
+    });
 
     await AuditLog.create({
       action: 'Activation rejected',

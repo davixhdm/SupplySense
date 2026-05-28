@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { aiInsightsService } from '../../services/aiInsightsService'
+import { useAuthStore } from '../../store/authStore'
 import Button from '../../components/common/Button'
 import Input from '../../components/common/Input'
 import { Search, TrendingUp, AlertTriangle, Lightbulb, Lock, Sparkles, ChevronRight, BarChart3 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 export default function AIInsightsPage() {
+  const organization = useAuthStore((state) => state.organization)
+  const currency = organization?.settings?.currency || 'KSh'
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('')
   const [result, setResult] = useState<any>(null)
@@ -36,6 +39,11 @@ export default function AIInsightsPage() {
     try { const res = await aiInsightsService.search('', q); setResult(res) }
     catch (err) { toast.error('Search failed') }
     finally { setLoading(false) }
+  }
+
+  const formatInsight = (text: string) => {
+    if (!text) return ''
+    return text.replace(/\$/g, currency + ' ')
   }
 
   const suggestedQueries = [
@@ -91,16 +99,20 @@ export default function AIInsightsPage() {
           <div className="space-y-6">
             <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
               <p className="text-sm font-medium text-blue-700 dark:text-blue-400 mb-1">💡 AI Analysis</p>
-              <p className="text-sm text-blue-800 dark:text-blue-300">{result.insights}</p>
+              <p className="text-sm text-blue-800 dark:text-blue-300">{formatInsight(result.insights)}</p>
             </div>
             {result.recommendations?.length > 0 && (
               <div>
                 <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">📋 Recommendations</p>
                 <div className="space-y-2">
                   {result.recommendations.map((rec: any, i: number) => (
-                    <div key={i} className={`p-3 rounded-lg border flex items-start gap-3 ${rec.priority === 'HIGH' ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' : rec.priority === 'MEDIUM' ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800' : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'}`}>
+                    <div key={i} className={`p-3 rounded-lg border flex items-start gap-3 ${
+                      rec.priority === 'HIGH' ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' :
+                      rec.priority === 'MEDIUM' ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800' :
+                      'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                    }`}>
                       <span className={`text-xs font-bold px-2 py-0.5 rounded ${rec.priority === 'HIGH' ? 'bg-red-100 text-red-700' : rec.priority === 'MEDIUM' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>{rec.priority}</span>
-                      <p className="text-sm">{rec.description}</p>
+                      <p className="text-sm">{formatInsight(rec.description)}</p>
                     </div>
                   ))}
                 </div>

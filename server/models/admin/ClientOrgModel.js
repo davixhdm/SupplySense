@@ -17,6 +17,7 @@ const clientOrgSchema = new mongoose.Schema(
     },
     timezone: { type: String, default: 'Africa/Nairobi' },
     language: { type: String, default: 'en' },
+    mode: { type: String, enum: ['standalone', 'erp'], default: 'standalone' },
     plan: { type: String, enum: ['trial', 'standard', 'proplus'], default: 'trial' },
     billingCycle: { type: String, enum: ['monthly', 'yearly', 'permanent', 'trial'], default: 'trial' },
     planStartDate: { type: Date, default: Date.now },
@@ -28,10 +29,15 @@ const clientOrgSchema = new mongoose.Schema(
     suspendedReason: { type: String, default: '' },
     suspendedAt: { type: Date, default: null },
     erpConnections: [{
-      type: { type: String, enum: ['odoo', 'zoho', 'sap', 'dynamics', 'custom', 'csv'] },
+      type: { type: String, enum: ['odoo', 'zoho', 'sap', 'dynamics', 'shopify', 'woocommerce', 'hdm', 'smartpos', 'custom', 'csv'] },
       name: String,
       url: String,
       apiKey: String,
+      username: String,
+      password: String,
+      database: String,
+      consumerKey: String,
+      consumerSecret: String,
       isActive: { type: Boolean, default: true },
       lastSync: { type: Date, default: null },
       syncInterval: { type: String, enum: ['realtime', 'hourly', 'daily', 'manual'], default: 'hourly' }
@@ -44,6 +50,18 @@ const clientOrgSchema = new mongoose.Schema(
         sms: { type: Boolean, default: false },
         whatsapp: { type: Boolean, default: false }
       }
+    },
+    enabledModules: {
+      dashboard: { type: Boolean, default: true },
+      transactions: { type: Boolean, default: true },
+      orders: { type: Boolean, default: true },
+      inventory: { type: Boolean, default: true },
+      suppliers: { type: Boolean, default: true },
+      customers: { type: Boolean, default: true },
+      employees: { type: Boolean, default: true },
+      aiInsights: { type: Boolean, default: true },
+      alerts: { type: Boolean, default: true },
+      settings: { type: Boolean, default: true }
     },
     backupSchedule: {
       enabled: { type: Boolean, default: false },
@@ -61,9 +79,16 @@ const clientOrgSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-clientOrgSchema.pre('save', function (next) {
+clientOrgSchema.pre('save', async function (next) {
   if (this.isModified('organizationName') || !this.slug) {
-    this.slug = this.organizationName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    let baseSlug = this.organizationName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    let slug = baseSlug;
+    let count = 0;
+    while (await mongoose.model('ClientOrg').findOne({ slug, _id: { $ne: this._id } })) {
+      count++;
+      slug = `${baseSlug}-${count}`;
+    }
+    this.slug = slug;
   }
   next();
 });

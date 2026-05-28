@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { inventoryService } from '../../services/inventoryService'
+import { useAuthStore } from '../../store/authStore'
 import Table from '../../components/common/Table'
 import Button from '../../components/common/Button'
 import Modal from '../../components/common/Modal'
@@ -9,6 +10,8 @@ import { Plus, Search } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 export default function InventoryPage() {
+  const organization = useAuthStore((state) => state.organization)
+  const isERP = organization?.mode === 'erp'
   const [data, setData] = useState<any>({ products: [] })
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -64,8 +67,11 @@ export default function InventoryPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Inventory</h1>
-        <Button onClick={() => setShowCreate(true)}><Plus size={16} className="mr-1" /> Add Product</Button>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Inventory</h1>
+          {isERP && <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">Synced from ERP</p>}
+        </div>
+        {!isERP && <Button onClick={() => setShowCreate(true)}><Plus size={16} className="mr-1" /> Add Product</Button>}
       </div>
       <div className="flex gap-2 mb-4">
         <Input placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && fetchData()} />
@@ -81,31 +87,35 @@ export default function InventoryPage() {
           ))}
         </div>
       )}
-      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Add Product">
-        <div className="space-y-3">
-          <Input label="SKU" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} />
-          <Input label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          <Input label="Stock Level" type="number" value={form.stockLevel} onChange={(e) => setForm({ ...form, stockLevel: e.target.value })} />
-          <Input label="Reorder Threshold" type="number" value={form.reorderThreshold} onChange={(e) => setForm({ ...form, reorderThreshold: e.target.value })} />
-          <Input label="Unit Cost" type="number" value={form.unitCost} onChange={(e) => setForm({ ...form, unitCost: e.target.value })} />
-          <Input label="Selling Price" type="number" value={form.sellingPrice} onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })} />
-          <Button onClick={handleCreate} loading={creating} className="w-full">Create</Button>
-        </div>
-      </Modal>
-      <Modal isOpen={!!showStock} onClose={() => setShowStock(null)} title={`Adjust Stock: ${showStock?.name}`}>
-        <div className="space-y-3">
-          <Input label="Quantity" type="number" value={stockForm.quantity} onChange={(e) => setStockForm({ ...stockForm, quantity: e.target.value })} />
-          <div>
-            <label className="block text-sm font-medium mb-1">Type</label>
-            <select value={stockForm.type} onChange={(e) => setStockForm({ ...stockForm, type: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm dark:bg-gray-800">
-              <option value="increase">Increase</option>
-              <option value="decrease">Decrease</option>
-            </select>
-          </div>
-          <Input label="Reason" value={stockForm.reason} onChange={(e) => setStockForm({ ...stockForm, reason: e.target.value })} />
-          <Button onClick={handleStockAdjust} className="w-full">Update</Button>
-        </div>
-      </Modal>
+      {!isERP && (
+        <>
+          <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Add Product">
+            <div className="space-y-3">
+              <Input label="SKU" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} />
+              <Input label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+              <Input label="Stock Level" type="number" value={form.stockLevel} onChange={(e) => setForm({ ...form, stockLevel: e.target.value })} />
+              <Input label="Reorder Threshold" type="number" value={form.reorderThreshold} onChange={(e) => setForm({ ...form, reorderThreshold: e.target.value })} />
+              <Input label="Unit Cost" type="number" value={form.unitCost} onChange={(e) => setForm({ ...form, unitCost: e.target.value })} />
+              <Input label="Selling Price" type="number" value={form.sellingPrice} onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })} />
+              <Button onClick={handleCreate} loading={creating} className="w-full">Create</Button>
+            </div>
+          </Modal>
+          <Modal isOpen={!!showStock} onClose={() => setShowStock(null)} title={`Adjust Stock: ${showStock?.name}`}>
+            <div className="space-y-3">
+              <Input label="Quantity" type="number" value={stockForm.quantity} onChange={(e) => setStockForm({ ...stockForm, quantity: e.target.value })} />
+              <div>
+                <label className="block text-sm font-medium mb-1">Type</label>
+                <select value={stockForm.type} onChange={(e) => setStockForm({ ...stockForm, type: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm dark:bg-gray-800">
+                  <option value="increase">Increase</option>
+                  <option value="decrease">Decrease</option>
+                </select>
+              </div>
+              <Input label="Reason" value={stockForm.reason} onChange={(e) => setStockForm({ ...stockForm, reason: e.target.value })} />
+              <Button onClick={handleStockAdjust} className="w-full">Update</Button>
+            </div>
+          </Modal>
+        </>
+      )}
     </div>
   )
 }

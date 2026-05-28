@@ -1,5 +1,16 @@
 import ClientOrg from '../../models/admin/ClientOrgModel.js';
+import ClientUser from '../../models/client/ClientUserModel.js';
+import Product from '../../models/client/ProductModel.js';
+import Supplier from '../../models/client/SupplierModel.js';
+import Order from '../../models/client/OrderModel.js';
+import Customer from '../../models/client/CustomerModel.js';
+import Transaction from '../../models/client/TransactionModel.js';
+import Employee from '../../models/client/EmployeeModel.js';
+import Alert from '../../models/client/AlertModel.js';
+import Device from '../../models/client/DeviceModel.js';
 import LicenseKey from '../../models/admin/LicenseKeyModel.js';
+import PendingActivation from '../../models/admin/PendingActivationModel.js';
+import Payment from '../../models/admin/PaymentModel.js';
 import AuditLog from '../../models/admin/AuditLogModel.js';
 import { generateLicenseKey, revokeLicense } from '../../services/licenseService.js';
 
@@ -142,12 +153,46 @@ const extendTrial = async (req, res) => {
     res.status(500).json({ message: 'Internal server error.' });
   }
 };
+const deleteOrganization = async (req, res) => {
+  try {
+    const org = await ClientOrg.findById(req.params.id);
+    if (!org) return res.status(404).json({ message: 'Organization not found.' });
 
-export {
-  getApplications,
-  getApplicationById,
-  updatePlan,
-  suspendOrganization,
-  reactivateOrganization,
-  extendTrial
+    const tenantId = org._id;
+
+    await Promise.all([
+      ClientUser.deleteMany({ organizationId: tenantId }),
+      Product.deleteMany({ organizationId: tenantId }),
+      Supplier.deleteMany({ organizationId: tenantId }),
+      Order.deleteMany({ organizationId: tenantId }),
+      Customer.deleteMany({ organizationId: tenantId }),
+      Transaction.deleteMany({ organizationId: tenantId }),
+      Employee.deleteMany({ organizationId: tenantId }),
+      Alert.deleteMany({ organizationId: tenantId }),
+      Device.deleteMany({ organizationId: tenantId }),
+      LicenseKey.deleteMany({ organizationId: tenantId }),
+      PendingActivation.deleteMany({ organizationId: tenantId }),
+      Payment.deleteMany({ organizationId: tenantId }),
+      AuditLog.deleteMany({ organizationId: tenantId })
+    ]);
+
+    await ClientOrg.findByIdAndDelete(tenantId);
+
+    await AuditLog.create({
+      action: 'Organization deleted',
+      actionType: 'admin_action',
+      performedBy: req.admin._id,
+      performedByModel: 'AdminUser',
+      targetId: tenantId,
+      description: `Deleted organization: ${org.organizationName} and all associated data`,
+      severity: 'critical'
+    });
+
+    res.json({ message: 'Organization and all data permanently deleted.' });
+  } catch (error) {
+    console.error('Delete organization error:', error);
+    res.status(500).json({ message: 'Internal server error.' });
+  }
 };
+
+export { getApplications, getApplicationById, updatePlan, suspendOrganization, reactivateOrganization, extendTrial, deleteOrganization };
