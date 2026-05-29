@@ -23,15 +23,8 @@ const getGeneralInsights = async (req, res) => {
 
     let aiResult = null;
     try {
-      aiResult = await generateInsights({
-        organizationId: tenantId,
-        query: 'general',
-        category: 'general',
-        data
-      });
-    } catch (e) {
-      console.warn('AI insights unavailable:', e.message);
-    }
+      aiResult = await generateInsights({ organizationId: tenantId, query: 'general', category: 'general', data });
+    } catch (e) { console.warn('AI insights unavailable:', e.message); }
 
     const productCount = products.length;
     const lowStock = products.filter(p => p.stockLevel <= p.reorderThreshold).length;
@@ -48,8 +41,8 @@ const getGeneralInsights = async (req, res) => {
         customerInsights: { atRiskCount: atRiskCustomers.length, atRiskCustomers },
         recentTransactions
       },
-      aiInsights: aiResult?.insights || 'AI insights will be available once enough data is collected.',
-      charts: aiResult?.charts || {},
+      aiInsights: aiResult?.key_findings || aiResult?.insights || 'AI insights will be available once enough data is collected.',
+      charts: aiResult?.supporting_metrics || aiResult?.charts || {},
       recommendations: aiResult?.recommendations || []
     });
   } catch (error) {
@@ -80,20 +73,13 @@ const searchInsights = async (req, res) => {
 
     let aiResult = null;
     try {
-      aiResult = await generateInsights({
-        organizationId: tenantId,
-        query: query || category,
-        category: category || '',
-        data
-      });
-    } catch (e) {
-      console.warn('AI insights unavailable:', e.message);
-    }
+      aiResult = await generateInsights({ organizationId: tenantId, query: query || category, category: category || '', data });
+    } catch (e) { console.warn('AI insights unavailable:', e.message); }
 
     res.json({
       query: query || category,
-      insights: aiResult?.insights || 'Unable to generate insights at this time.',
-      charts: aiResult?.charts || {},
+      insights: aiResult?.key_findings || aiResult?.insights || 'Unable to generate insights at this time.',
+      charts: aiResult?.supporting_metrics || aiResult?.charts || {},
       recommendations: aiResult?.recommendations || [],
       data
     });
@@ -115,19 +101,19 @@ const getPrediction = async (req, res) => {
     if (type === 'stockout' && referenceId) {
       const product = await Product.findOne({ _id: referenceId, organizationId: tenantId });
       if (!product) return res.status(404).json({ message: 'Product not found.' });
-      result = await predictStockout({ productId: product._id, currentStock: product.stockLevel, reorderThreshold: product.reorderThreshold });
+      result = await predictStockout({ productId: product._id, currentStock: product.stockLevel, reorderThreshold: product.reorderThreshold, dailyDemand: 5, leadTime: 7 });
     } else if (type === 'demand') {
       const products = await Product.find({ organizationId: tenantId, isActive: true }).select('name stockLevel').lean();
-      result = await predictDemand({ organizationId: tenantId, products });
+      result = await predictDemand({ organizationId: tenantId, products, product_id: 0, periods: 7, data: [] });
     } else if (type === 'supplier_risk') {
       const suppliers = await Supplier.find({ organizationId: tenantId, isActive: true }).select('name totalOrders onTimeDeliveries lateDeliveries').lean();
-      result = await scoreSupplier({ organizationId: tenantId, suppliers });
+      result = await scoreSupplier({ organizationId: tenantId, suppliers, data: [] });
     } else if (type === 'customer_churn') {
       const customers = await Customer.find({ organizationId: tenantId, isActive: true }).select('fullName lastPurchaseDate purchaseCount totalSpent').lean();
-      result = await predictCustomerChurn({ organizationId: tenantId, customers });
+      result = await predictCustomerChurn({ organizationId: tenantId, customers, customer_id: 0, data: [] });
     } else if (type === 'transaction_anomaly') {
       const transactions = await Transaction.find({ organizationId: tenantId, status: 'completed' }).sort({ transactionDate: -1 }).limit(500).lean();
-      result = await detectAnomalies({ organizationId: tenantId, transactions });
+      result = await detectAnomalies({ organizationId: tenantId, transactions, data: [] });
     } else {
       return res.status(400).json({ message: 'Invalid prediction type.' });
     }
