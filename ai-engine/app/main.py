@@ -5,7 +5,7 @@ import os
 
 load_dotenv()
 
-from app.routes import forecastRoutes, anomalyRoutes, supplierRoutes, customerRoutes, recommendationRoutes, insightsRoutes
+from app.routes import forecastRoutes, anomalyRoutes, supplierRoutes, customerRoutes, recommendationRoutes, insightsRoutes, debugRoutes
 
 app = FastAPI(
     title=os.getenv("API_TITLE", "SupplySense AI Engine"),
@@ -36,6 +36,7 @@ app.include_router(supplierRoutes.router, prefix="/api/supplier", tags=["Supplie
 app.include_router(customerRoutes.router, prefix="/api/customer", tags=["Customer Prediction"], dependencies=[Depends(verify_api_key)])
 app.include_router(recommendationRoutes.router, prefix="/api/recommendations", tags=["Recommendations"], dependencies=[Depends(verify_api_key)])
 app.include_router(insightsRoutes.router, prefix="/api/insights", tags=["Insights"], dependencies=[Depends(verify_api_key)])
+app.include_router(debugRoutes.router, prefix="/debug", tags=["Debug"])
 
 if __name__ == "__main__":
     import uvicorn
