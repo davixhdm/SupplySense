@@ -25,8 +25,9 @@ class GroqAIService:
         """Initialize Groq AI service"""
         try:
             api_key = os.getenv("GROQ_API_KEY")
+            api_url = os.getenv("GROQ_API_URL", "https://api.groq.com/openai/v1")
             if api_key:
-                self.client = Groq(api_key=api_key)
+                self.client = Groq(api_key=api_key, base_url=api_url)
                 self.model = "mixtral-8x7b-32768"  # Fast and accurate model
                 self.available = True
             else:

@@ -1,0 +1,63 @@
+# ============================================
+# SUPPLYSENSE — SERVER CONFIGURATION
+# ============================================
+
+# Server
+PORT=5000
+NODE_ENV=development
+BASE_URL=http://localhost:5000
+
+# Frontend URLs
+CLIENT_APP_URL=http://localhost:3000
+ADMIN_APP_URL=http://localhost:3001
+
+# Database
+MONGODB_URI=mongodb://localhost:27017/supplysense
+
+# Authentication
+JWT_SECRET=38f8cd3e7cd21d35828fe80e42bb3bb2f684d978d33c4396e6c659eab68a864f
+JWT_EXPIRES_IN=7d
+ENCRYPTION_KEY=a7266a61cca2d0147de35cf91a2b351e
+
+# License
+LICENSE_KEY_PREFIX=SSS
+TRIAL_DURATION_DAYS=14
+
+# Default Settings
+DEFAULT_CURRENCY=KSh
+ADMIN_INVITE_CODE=supplysense-admin-setup-2026
+
+# ============================================
+# EMAIL & SMS — BREVO
+# ============================================
+BREVO_API_KEY=brevo-api-key
+BREVO_SENDER_EMAIL=noreply@supplysense.com
+BREVO_SENDER_NAME=SupplySense
+
+# ============================================
+# PAYMENT — STRIPE
+# ============================================
+STRIPE_SECRET_KEY=sk_test-stripe-secret
+STRIPE_WEBHOOK_SECRET=whsec-stripe-webhook-secret
+
+# ============================================
+# PAYMENT — M-PESA (SAFARICOM DARAJA)
+# ============================================
+MPESA_CONSUMER_KEY=mpesa-consumer-key
+MPESA_CONSUMER_SECRET=mpesa-consumer-secret
+MPESA_PASSKEY=mpesa-passkey
+MPESA_SHORTCODE=174379
+MPESA_ENVIRONMENT=sandbox
+
+# ============================================
+# PAYMENT — PAYPAL
+# ============================================
+PAYPAL_CLIENT_ID=pp
+PAYPAL_SECRET=pp
+PAYPAL_ENVIRONMENT=sandbox
+
+# ============================================
+# AI ENGINE
+# ============================================
+AI_ENGINE_URL=http://localhost:8000
+AI_ENGINE_API_KEY=supplysense449840e02cf67e93  */
