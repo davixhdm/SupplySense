@@ -21,7 +21,7 @@ export default function PaymentConfigTab() {
     const fetch = async () => {
       try {
         const res = await paymentService.getConfig()
-        if (res) setConfig(prev => ({ ...prev, ...res, mpesaNumbers: { ...prev.mpesaNumbers, ...(res.mpesaNumbers || {}) } }))
+        if (res) setConfig((prev: any) => ({ ...prev, ...res, mpesaNumbers: { ...prev.mpesaNumbers, ...(res.mpesaNumbers || {}) } }))
       } catch (err) {
         toast.error('Failed to load config')
       } finally {

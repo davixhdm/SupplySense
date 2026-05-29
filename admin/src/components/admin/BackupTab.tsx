@@ -70,7 +70,7 @@ export default function BackupTab() {
 
   const handleDownload = async (filename: string) => {
     try {
-      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+      const baseUrl = (import.meta.env as any).VITE_API_URL || 'http://localhost:5000/api'
       const token = localStorage.getItem('supplysense-admin-auth')
       const parsed = token ? JSON.parse(token) : null
       const authToken = parsed?.state?.token

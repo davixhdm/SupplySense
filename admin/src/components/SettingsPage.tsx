@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import GeneralTab from '../../../components/admin/GeneralTab'
-import SystemSettingsTab from '../../../components/admin/SystemSettingsTab'
-import PaymentConfigTab from '../../../components/admin/PaymentConfigTab'
-import PricingTab from '../../../components/admin/PricingTab'
-import AdminUsersTab from '../../../components/admin/AdminUsersTab'
-import LegalTab from '../../../components/admin/LegalTab'
-import BackupTab from '../../../components/admin/BackupTab'
-import { classNames } from '../../../utils/helpers'
+import GeneralTab from './admin/GeneralTab'
+import SystemSettingsTab from './admin/SystemSettingsTab'
+import PaymentConfigTab from './admin/PaymentConfigTab'
+import PricingTab from './admin/PricingTab'
+import AdminUsersTab from './admin/AdminUsersTab'
+import LegalTab from './admin/LegalTab'
+import BackupTab from './admin/BackupTab'
+import { classNames } from '../utils/helpers'
 
 const tabs = [
   { key: 'general', label: 'General', component: GeneralTab },
