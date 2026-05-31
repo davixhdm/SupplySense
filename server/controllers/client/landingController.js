@@ -1,5 +1,6 @@
 import axios from 'axios';
 import env from '../../config/env.js';
+import SystemSettings from '../../models/admin/SystemSettingsModel.js';
 
 const chat = async (req, res) => {
   try {
@@ -8,6 +9,11 @@ const chat = async (req, res) => {
     if (!message) {
       return res.status(400).json({ success: false, message: 'Message is required.' });
     }
+
+    const settings = await SystemSettings.getSettings();
+    const pricing = settings.pricing || {};
+    const currency = settings.paymentConfig?.currency || 'KSh';
+    const symbol = currency === 'KSh' ? 'KSh' : currency === 'USD' ? '$' : currency === 'EUR' ? '€' : '£';
 
     const payload = {
       query: message,
@@ -20,14 +26,22 @@ const chat = async (req, res) => {
           "Customer Management — Track customer spending and loyalty",
           "Demand Forecasting — Predict future stock needs",
           "Anomaly Detection — Flag unusual transactions",
+          "ERP Integration — Connect HDM ERP, SmartPOS, Odoo, Shopify, WooCommerce",
           "Multi-currency Support — KES, USD, EUR, GBP",
-          "Offline-First — Works without internet",
           "Cloud Backups — Automatic data protection"
         ],
         pricing: {
-          trial: "Free Trial: 14 days, no credit card required",
-          standard: "Standard: KSh 2,900/mo",
-          proplus: "Pro+: KSh 7,900/mo"
+          trial: `Free Trial: ${pricing.trial?.duration || 14} days, no credit card required`,
+          standard: {
+            monthly: `${symbol} ${pricing.standard?.monthly || 2900}/month`,
+            yearly: `${symbol} ${pricing.standard?.yearly || 29000}/year`,
+            permanent: `${symbol} ${pricing.standard?.permanent || 99000} one-time (lifetime)`
+          },
+          proplus: {
+            monthly: `${symbol} ${pricing.proplus?.monthly || 7900}/month`,
+            yearly: `${symbol} ${pricing.proplus?.yearly || 79000}/year`,
+            permanent: `${symbol} ${pricing.proplus?.permanent || 249000} one-time (lifetime)`
+          }
         },
         support: {
           email: "support@supplysense.com",

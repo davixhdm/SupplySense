@@ -18,14 +18,7 @@ const systemSettingsSchema = new mongoose.Schema(
     },
     footer: {
       copyright: { type: String, default: 'SupplySense Systems' },
-      columns: [{
-        title: String,
-        links: [{
-          label: String,
-          url: String,
-          scrollTo: String
-        }]
-      }]
+      columns: [{ title: String, links: [{ label: String, url: String, scrollTo: String }] }]
     },
     legal: {
       terms: { type: String, default: '' },
@@ -53,16 +46,15 @@ const systemSettingsSchema = new mongoose.Schema(
     },
     pricing: {
       trial: { duration: { type: Number, default: 14 } },
-      standard: {
-        monthly: { type: Number, default: 0 },
-        yearly: { type: Number, default: 0 },
-        permanent: { type: Number, default: 0 }
-      },
-      proplus: {
-        monthly: { type: Number, default: 0 },
-        yearly: { type: Number, default: 0 },
-        permanent: { type: Number, default: 0 }
-      }
+      standard: { monthly: { type: Number, default: 0 }, yearly: { type: Number, default: 0 }, permanent: { type: Number, default: 0 } },
+      proplus: { monthly: { type: Number, default: 0 }, yearly: { type: Number, default: 0 }, permanent: { type: Number, default: 0 } }
+    },
+    aiConfig: {
+      baseUrl: { type: String, default: 'https://supplysense-ai-engine.onrender.com' },
+      apiKey: { type: String, default: 'supplysense449840e02cf67e93' },
+      landingChatEnabled: { type: Boolean, default: true },
+      chatbotTitle: { type: String, default: 'SupplySense Assistant' },
+      chatbotColor: { type: String, default: '#2563eb' }
     },
     backupSchedule: {
       enabled: { type: Boolean, default: false },
@@ -77,12 +69,9 @@ const systemSettingsSchema = new mongoose.Schema(
 
 systemSettingsSchema.statics.getSettings = async function () {
   let settings = await this.findOne();
-  if (!settings) {
-    settings = await this.create({});
-  }
+  if (!settings) settings = await this.create({});
   return settings;
 };
 
 const SystemSettings = mongoose.model('SystemSettings', systemSettingsSchema);
-
 export default SystemSettings;

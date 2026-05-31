@@ -513,7 +513,7 @@ const changeClientPassword = async (req, res) => {
 
 const getPublicSettings = async (req, res) => {
   try {
-    const settings = await SystemSettings.findOne().select('systemName general footer legal pricing paymentConfig');
+    const settings = await SystemSettings.findOne().select('systemName general footer legal pricing paymentConfig aiConfig');
     if (!settings) {
       return res.json({
         systemName: 'SupplySense',
@@ -521,7 +521,8 @@ const getPublicSettings = async (req, res) => {
         footer: { copyright: 'SupplySense Systems', columns: [] },
         legal: { terms: '', privacy: '', cookies: '' },
         pricing: { trial: { duration: 14 }, standard: { monthly: 0, yearly: 0, permanent: 0 }, proplus: { monthly: 0, yearly: 0, permanent: 0 } },
-        paymentConfig: { currency: 'KSh' }
+        paymentConfig: { currency: 'KSh' },
+        aiConfig: { landingChatEnabled: true, chatbotTitle: 'SupplySense Assistant', chatbotColor: '#2563eb' }
       });
     }
 
