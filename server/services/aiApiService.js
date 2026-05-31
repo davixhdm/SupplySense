@@ -3,7 +3,7 @@ import env from '../config/env.js';
 
 const aiClient = axios.create({
   baseURL: env.AI_ENGINE_URL,
-  timeout: 30000,
+  timeout: 120000,
   headers: {
     'Content-Type': 'application/json',
     'x-api-key': env.AI_ENGINE_API_KEY

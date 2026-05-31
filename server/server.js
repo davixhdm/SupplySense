@@ -38,6 +38,8 @@ import clientUserRoutes from './routes/client/clientUserRoutes.js';
 import deviceRoutes from './routes/client/deviceRoutes.js';
 import clientBackupRoutes from './routes/client/clientBackupRoutes.js';
 import erpRoutes from './routes/client/erpRoutes.js';
+import landingRoutes from './routes/client/landingRoutes.js';
+
 
 import { startScheduler } from './services/syncScheduler.js';
 
@@ -105,6 +107,7 @@ app.use('/api/client/users', clientUserRoutes);
 app.use('/api/client/devices', deviceRoutes);
 app.use('/api/client/backups', clientBackupRoutes);
 app.use('/api/client/erp', erpRoutes);
+app.use('/api/landing', landingRoutes);
 
 app.use((req, res) => { res.status(404).json({ message: 'Route not found.' }); });
 app.use((err, req, res, next) => { console.error('\x1b[31mUnhandled error:\x1b[0m', err); res.status(500).json({ message: 'Internal server error.' }); });

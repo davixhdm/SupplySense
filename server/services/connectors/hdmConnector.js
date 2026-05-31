@@ -33,26 +33,30 @@ class HDMConnector {
   async pullAllData() {
     const result = await this.request('POST', 'query', { question: 'sync all data' });
     if (!result.success || !result.data) return { products: [], customers: [], invoices: [], employees: [], suppliers: [] };
+    
+    const raw = result.data.raw_data || result.data;
     return {
-      products: result.data.products || [],
-      customers: result.data.customers || [],
-      invoices: result.data.invoices || [],
-      employees: result.data.employees || [],
-      suppliers: result.data.suppliers || []
+      products: raw.products || [],
+      customers: raw.customers || [],
+      invoices: raw.invoices || [],
+      employees: raw.employees || [],
+      suppliers: raw.suppliers || [],
+      accounts: raw.accounts || [],
+      summary: raw.summary || {}
     };
   }
 
   async pullProducts() {
     const data = await this.pullAllData();
     return (data.products || []).map(p => ({
-      sku: p.sku || p.barcode || p.id?.toString() || '',
-      name: p.name || p.product_name || '',
+      sku: p.sku || p.name?.replace(/\s+/g, '-').toUpperCase() || '',
+      name: p.name || '',
       description: p.description || '',
       category: p.category || '',
-      stockLevel: p.stock_level || p.quantity || p.stock || 0,
-      reorderThreshold: p.reorder_threshold || p.lowStockThreshold || 0,
-      unitCost: p.cost_price || p.unit_cost || p.cost || 0,
-      sellingPrice: p.selling_price || p.price || 0,
+      stockLevel: p.stock || p.stockLevel || 0,
+      reorderThreshold: p.reorderLevel || p.reorderThreshold || 10,
+      unitCost: p.costPrice || p.cost || 0,
+      sellingPrice: p.sellingPrice || p.price || 0,
       barcode: p.barcode || ''
     }));
   }
@@ -60,23 +64,24 @@ class HDMConnector {
   async pullCustomers() {
     const data = await this.pullAllData();
     return (data.customers || []).map(c => ({
-      fullName: c.name || c.fullName || c.customer_name || '',
+      fullName: c.name || c.fullName || '',
       email: c.email || '',
-      phone: c.phone || '',
-      totalSpent: c.totalSpent || c.total_spent || 0,
-      purchaseCount: c.visitCount || c.purchase_count || 0
+      phone: c.phone || ''
     }));
   }
 
   async pullInvoices() {
     const data = await this.pullAllData();
     return (data.invoices || []).map(inv => ({
-      transactionNumber: inv.invoice_number || inv.receiptNumber || inv.id?.toString() || '',
-      type: inv.type || 'sale',
-      amount: inv.total || inv.amount || 0,
-      paymentMethod: inv.paymentMethod || inv.payment_method || 'other',
-      description: inv.description || '',
-      transactionDate: inv.date || inv.createdAt || new Date()
+      transactionNumber: inv.number || inv.invoiceNumber || '',
+      type: 'sale',
+      amount: inv.amount || 0,
+      status: inv.status === 'paid' ? 'completed' : 'pending',
+      description: `Invoice ${inv.number || ''} - ${inv.customer || 'N/A'}`,
+      transactionDate: inv.date || new Date(),
+      invoiceNumber: inv.number || '',
+      invoiceStatus: inv.status || 'draft',
+      customerName: inv.customer || ''
     }));
   }
 
@@ -94,7 +99,7 @@ class HDMConnector {
   async pullSuppliers() {
     const data = await this.pullAllData();
     return (data.suppliers || []).map(s => ({
-      name: s.name || s.supplier_name || '',
+      name: s.name || '',
       email: s.email || '',
       phone: s.phone || ''
     }));
